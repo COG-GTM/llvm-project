@@ -1,0 +1,11 @@
+## Check that the enums in lib/builtins/cpu_model/x86.c, which fill
+## __cpu_model/__cpu_features2, agree with llvm/TargetParser/X86TargetParser.def,
+## from which clang takes the indices and bit positions it emits for
+## __builtin_cpu_is, __builtin_cpu_supports and function multiversioning.
+## See llvm/test/Other/x86-cpu-model-abi for the checker's own tests.
+
+# RUN: %python %llvm_src/utils/check_x86_cpu_model_abi.py \
+# RUN:   --def %llvm_src/include/llvm/TargetParser/X86TargetParser.def \
+# RUN:   --x86-c %crt_src/lib/builtins/cpu_model/x86.c \
+# RUN:   | FileCheck %s
+# CHECK: OK: {{[0-9]+}} vendors, {{[0-9]+}} CPU types, {{[0-9]+}} CPU subtypes, {{[0-9]+}} features match

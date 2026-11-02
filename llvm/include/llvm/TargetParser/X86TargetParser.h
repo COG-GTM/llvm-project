@@ -24,8 +24,10 @@ class StringRef;
 
 namespace X86 {
 
-// This should be kept in sync with libcc/compiler-rt as its included by clang
-// as a proxy for what's in libgcc/compiler-rt.
+// This should be kept in sync with libgcc/compiler-rt as its included by clang
+// as a proxy for what's in libgcc/compiler-rt. The test
+// llvm/test/Other/x86-cpu-model-abi checks that
+// compiler-rt/lib/builtins/cpu_model/x86.c agrees.
 enum ProcessorVendors : unsigned {
   VENDOR_DUMMY,
 #define X86_VENDOR(ENUM, STRING) \
@@ -34,8 +36,10 @@ enum ProcessorVendors : unsigned {
   VENDOR_OTHER
 };
 
-// This should be kept in sync with libcc/compiler-rt as its included by clang
-// as a proxy for what's in libgcc/compiler-rt.
+// This should be kept in sync with libgcc/compiler-rt as its included by clang
+// as a proxy for what's in libgcc/compiler-rt. The test
+// llvm/test/Other/x86-cpu-model-abi checks that
+// compiler-rt/lib/builtins/cpu_model/x86.c agrees.
 enum ProcessorTypes : unsigned {
   CPU_TYPE_DUMMY,
 #define X86_CPU_TYPE(ENUM, STRING) \
@@ -44,8 +48,10 @@ enum ProcessorTypes : unsigned {
   CPU_TYPE_MAX
 };
 
-// This should be kept in sync with libcc/compiler-rt as its included by clang
-// as a proxy for what's in libgcc/compiler-rt.
+// This should be kept in sync with libgcc/compiler-rt as its included by clang
+// as a proxy for what's in libgcc/compiler-rt. The test
+// llvm/test/Other/x86-cpu-model-abi checks that
+// compiler-rt/lib/builtins/cpu_model/x86.c agrees.
 enum ProcessorSubtypes : unsigned {
   CPU_SUBTYPE_DUMMY,
 #define X86_CPU_SUBTYPE(ENUM, STRING) \
@@ -54,8 +60,9 @@ enum ProcessorSubtypes : unsigned {
   CPU_SUBTYPE_MAX
 };
 
-// This should be kept in sync with libcc/compiler-rt as it should be used
-// by clang as a proxy for what's in libgcc/compiler-rt.
+// This should be kept in sync with libgcc/compiler-rt as it should be used
+// by clang as a proxy for what's in libgcc/compiler-rt. The ABI bit of each
+// feature is the ABI_VALUE in X86TargetParser.def, not this enum's value.
 enum ProcessorFeatures {
 #define X86_FEATURE(ENUM, STRING) FEATURE_##ENUM,
 #include "llvm/TargetParser/X86TargetParser.def"

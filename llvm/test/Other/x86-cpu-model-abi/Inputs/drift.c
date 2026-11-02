@@ -1,0 +1,28 @@
+enum ProcessorVendors {
+  VENDOR_INTEL = 1,
+  VENDOR_AMD,
+  VENDOR_OTHER,
+  VENDOR_MAX
+};
+
+enum ProcessorTypes {
+  INTEL_CORE2 = 1,
+  INTEL_BONNELL,
+  ZHAOXIN_FAM7H,
+  CPU_TYPE_MAX
+};
+
+enum ProcessorSubtypes {
+  INTEL_COREI7_NEHALEM = 1,
+  INTEL_COREI7_WESTMERE,
+  CPU_SUBTYPE_MAX
+};
+
+enum ProcessorFeatures {
+  FEATURE_CMOV = 0,
+  FEATURE_MMX,
+  FEATURE_SSE,
+  FEATURE_LAHF_LM = 54,
+  FEATURE_ADX,
+  CPU_FEATURE_MAX
+};

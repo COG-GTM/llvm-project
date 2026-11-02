@@ -249,8 +249,8 @@ constexpr const char *const HangulSyllables[][3] = {
     };
 // clang-format on
 
-// Unicode 15.0
-// 3.12 Conjoining Jamo Behavior Common constants
+// Unicode 15.1 Section 3.12 Conjoining Jamo Behavior
+// Common constants
 constexpr char32_t SBase = 0xAC00;
 constexpr uint32_t LCount = 19;
 constexpr uint32_t VCount = 21;

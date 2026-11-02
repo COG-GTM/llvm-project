@@ -8,6 +8,7 @@
 
 #include "ReducerWorkItem.h"
 #include "TestRunner.h"
+#include "deltas/ReduceInstructionFlags.h"
 #include "llvm/Analysis/ModuleSummaryAnalysis.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Bitcode/BitcodeReader.h"
@@ -26,7 +27,6 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/ModuleSummaryIndex.h"
-#include "llvm/IR/Operator.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/MC/TargetRegistry.h"
@@ -666,49 +666,7 @@ static uint64_t computeIRComplexityScoreImpl(const Function &F) {
     for (const Instruction &I : BB) {
       ++Score;
 
-      if (const auto *OverflowOp = dyn_cast<OverflowingBinaryOperator>(&I)) {
-        if (OverflowOp->hasNoUnsignedWrap())
-          ++Score;
-        if (OverflowOp->hasNoSignedWrap())
-          ++Score;
-      } else if (const auto *Trunc = dyn_cast<TruncInst>(&I)) {
-        if (Trunc->hasNoSignedWrap())
-          ++Score;
-        if (Trunc->hasNoUnsignedWrap())
-          ++Score;
-      } else if (const auto *ExactOp = dyn_cast<PossiblyExactOperator>(&I)) {
-        if (ExactOp->isExact())
-          ++Score;
-      } else if (const auto *NNI = dyn_cast<PossiblyNonNegInst>(&I)) {
-        if (NNI->hasNonNeg())
-          ++Score;
-      } else if (const auto *PDI = dyn_cast<PossiblyDisjointInst>(&I)) {
-        if (PDI->isDisjoint())
-          ++Score;
-      } else if (const auto *GEP = dyn_cast<GEPOperator>(&I)) {
-        if (GEP->isInBounds())
-          ++Score;
-        if (GEP->hasNoUnsignedSignedWrap())
-          ++Score;
-        if (GEP->hasNoUnsignedWrap())
-          ++Score;
-      } else if (const auto *FPOp = dyn_cast<FPMathOperator>(&I)) {
-        FastMathFlags FMF = FPOp->getFastMathFlags();
-        if (FMF.allowReassoc())
-          ++Score;
-        if (FMF.noNaNs())
-          ++Score;
-        if (FMF.noInfs())
-          ++Score;
-        if (FMF.noSignedZeros())
-          ++Score;
-        if (FMF.allowReciprocal())
-          ++Score;
-        if (FMF.allowContract())
-          ++Score;
-        if (FMF.approxFunc())
-          ++Score;
-      }
+      Score += countReducibleInstructionFlags(I);
 
       for (const Value *Operand : I.operands()) {
         ++Score;

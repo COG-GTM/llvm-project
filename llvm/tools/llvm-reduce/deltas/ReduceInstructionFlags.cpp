@@ -18,68 +18,82 @@
 
 using namespace llvm;
 
+void llvm::visitReducibleInstructionFlags(Instruction &I,
+                                         function_ref<bool()> ShouldDrop) {
+  if (auto *OBO = dyn_cast<OverflowingBinaryOperator>(&I)) {
+    if (OBO->hasNoSignedWrap() && ShouldDrop())
+      I.setHasNoSignedWrap(false);
+    if (OBO->hasNoUnsignedWrap() && ShouldDrop())
+      I.setHasNoUnsignedWrap(false);
+  } else if (auto *Trunc = dyn_cast<TruncInst>(&I)) {
+    if (Trunc->hasNoSignedWrap() && ShouldDrop())
+      Trunc->setHasNoSignedWrap(false);
+    if (Trunc->hasNoUnsignedWrap() && ShouldDrop())
+      Trunc->setHasNoUnsignedWrap(false);
+  } else if (auto *PE = dyn_cast<PossiblyExactOperator>(&I)) {
+    if (PE->isExact() && ShouldDrop())
+      I.setIsExact(false);
+  } else if (auto *NNI = dyn_cast<PossiblyNonNegInst>(&I)) {
+    if (NNI->hasNonNeg() && ShouldDrop())
+      NNI->setNonNeg(false);
+  } else if (auto *PDI = dyn_cast<PossiblyDisjointInst>(&I)) {
+    if (PDI->isDisjoint() && ShouldDrop())
+      PDI->setIsDisjoint(false);
+  } else if (auto *ICmp = dyn_cast<ICmpInst>(&I)) {
+    if (ICmp->hasSameSign() && ShouldDrop())
+      ICmp->setSameSign(false);
+  } else if (auto *GEP = dyn_cast<GetElementPtrInst>(&I)) {
+    GEPNoWrapFlags NW = GEP->getNoWrapFlags();
+    if (NW.isInBounds() && ShouldDrop())
+      NW = NW.withoutInBounds();
+    if (NW.hasNoUnsignedSignedWrap() && ShouldDrop())
+      NW = NW.withoutNoUnsignedSignedWrap();
+    if (NW.hasNoUnsignedWrap() && ShouldDrop())
+      NW = NW.withoutNoUnsignedWrap();
+    if (NW != GEP->getNoWrapFlags())
+      GEP->setNoWrapFlags(NW);
+  } else if (auto *FPOp = dyn_cast<FPMathOperator>(&I)) {
+    FastMathFlags Flags = FPOp->getFastMathFlags();
+
+    if (Flags.allowReassoc() && ShouldDrop())
+      Flags.setAllowReassoc(false);
+
+    if (Flags.noNaNs() && ShouldDrop())
+      Flags.setNoNaNs(false);
+
+    if (Flags.noInfs() && ShouldDrop())
+      Flags.setNoInfs(false);
+
+    if (Flags.noSignedZeros() && ShouldDrop())
+      Flags.setNoSignedZeros(false);
+
+    if (Flags.allowReciprocal() && ShouldDrop())
+      Flags.setAllowReciprocal(false);
+
+    if (Flags.allowContract() && ShouldDrop())
+      Flags.setAllowContract(false);
+
+    if (Flags.approxFunc() && ShouldDrop())
+      Flags.setApproxFunc(false);
+
+    if (Flags != FPOp->getFastMathFlags())
+      I.copyFastMathFlags(Flags);
+  }
+}
+
+unsigned llvm::countReducibleInstructionFlags(const Instruction &I) {
+  unsigned NumFlags = 0;
+  // Never asks for a flag to be dropped, so I is not modified.
+  visitReducibleInstructionFlags(const_cast<Instruction &>(I), [&NumFlags] {
+    ++NumFlags;
+    return false;
+  });
+  return NumFlags;
+}
+
 void llvm::reduceInstructionFlagsDeltaPass(Oracle &O,
                                            ReducerWorkItem &WorkItem) {
-  // Keep this in sync with computeIRComplexityScoreImpl().
-  for (Function &F : WorkItem.getModule()) {
-    for (Instruction &I : instructions(F)) {
-      if (auto *OBO = dyn_cast<OverflowingBinaryOperator>(&I)) {
-        if (OBO->hasNoSignedWrap() && !O.shouldKeep())
-          I.setHasNoSignedWrap(false);
-        if (OBO->hasNoUnsignedWrap() && !O.shouldKeep())
-          I.setHasNoUnsignedWrap(false);
-      } else if (auto *Trunc = dyn_cast<TruncInst>(&I)) {
-        if (Trunc->hasNoSignedWrap() && !O.shouldKeep())
-          Trunc->setHasNoSignedWrap(false);
-        if (Trunc->hasNoUnsignedWrap() && !O.shouldKeep())
-          Trunc->setHasNoUnsignedWrap(false);
-      } else if (auto *PE = dyn_cast<PossiblyExactOperator>(&I)) {
-        if (PE->isExact() && !O.shouldKeep())
-          I.setIsExact(false);
-      } else if (auto *NNI = dyn_cast<PossiblyNonNegInst>(&I)) {
-        if (NNI->hasNonNeg() && !O.shouldKeep())
-          NNI->setNonNeg(false);
-      } else if (auto *PDI = dyn_cast<PossiblyDisjointInst>(&I)) {
-        if (PDI->isDisjoint() && !O.shouldKeep())
-          PDI->setIsDisjoint(false);
-      } else if (auto *ICmp = dyn_cast<ICmpInst>(&I)) {
-        if (ICmp->hasSameSign() && !O.shouldKeep())
-          ICmp->setSameSign(false);
-      } else if (auto *GEP = dyn_cast<GetElementPtrInst>(&I)) {
-        GEPNoWrapFlags NW = GEP->getNoWrapFlags();
-        if (NW.isInBounds() && !O.shouldKeep())
-          NW = NW.withoutInBounds();
-        if (NW.hasNoUnsignedSignedWrap() && !O.shouldKeep())
-          NW = NW.withoutNoUnsignedSignedWrap();
-        if (NW.hasNoUnsignedWrap() && !O.shouldKeep())
-          NW = NW.withoutNoUnsignedWrap();
-        GEP->setNoWrapFlags(NW);
-      } else if (auto *FPOp = dyn_cast<FPMathOperator>(&I)) {
-        FastMathFlags Flags = FPOp->getFastMathFlags();
-
-        if (Flags.allowReassoc() && !O.shouldKeep())
-          Flags.setAllowReassoc(false);
-
-        if (Flags.noNaNs() && !O.shouldKeep())
-          Flags.setNoNaNs(false);
-
-        if (Flags.noInfs() && !O.shouldKeep())
-          Flags.setNoInfs(false);
-
-        if (Flags.noSignedZeros() && !O.shouldKeep())
-          Flags.setNoSignedZeros(false);
-
-        if (Flags.allowReciprocal() && !O.shouldKeep())
-          Flags.setAllowReciprocal(false);
-
-        if (Flags.allowContract() && !O.shouldKeep())
-          Flags.setAllowContract(false);
-
-        if (Flags.approxFunc() && !O.shouldKeep())
-          Flags.setApproxFunc(false);
-
-        I.copyFastMathFlags(Flags);
-      }
-    }
-  }
+  for (Function &F : WorkItem.getModule())
+    for (Instruction &I : instructions(F))
+      visitReducibleInstructionFlags(I, [&O] { return !O.shouldKeep(); });
 }

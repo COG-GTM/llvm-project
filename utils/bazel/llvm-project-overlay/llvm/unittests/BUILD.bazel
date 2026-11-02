@@ -394,6 +394,8 @@ cc_test(
             "ExecutionEngine/Orc/*.h",
         ],
         allow_empty = False,
+        # Needs the compiler-rt ORC runtime headers as "orc/*.h".
+        exclude = ["ExecutionEngine/Orc/OrcRTJITSymbolFlagsTest.cpp"],
     ),
     args = [
         # keep one-per-line

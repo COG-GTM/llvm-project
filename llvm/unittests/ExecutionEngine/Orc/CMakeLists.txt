@@ -17,6 +17,17 @@ set(LLVM_LINK_COMPONENTS
   native
   )
 
+# Cross-check llvm::JITSymbolFlags against the ORC runtime's copy when the
+# compiler-rt sources are available, even if compiler-rt is not being built.
+set(ORC_RT_SOURCE_DIR ${LLVM_MAIN_SRC_DIR}/../compiler-rt/lib)
+if(EXISTS ${ORC_RT_SOURCE_DIR}/orc/executor_symbol_def.h)
+  set(ORC_RT_COMPAT_TESTS OrcRTJITSymbolFlagsTest.cpp)
+  set_property(SOURCE OrcRTJITSymbolFlagsTest.cpp APPEND PROPERTY
+    INCLUDE_DIRECTORIES ${ORC_RT_SOURCE_DIR})
+else()
+  set(LLVM_OPTIONAL_SOURCES OrcRTJITSymbolFlagsTest.cpp)
+endif()
+
 add_llvm_unittest(OrcJITTests
   CallableTraitsHelperTest.cpp
   CallSPSViaEPCTest.cpp
@@ -39,6 +50,7 @@ add_llvm_unittest(OrcJITTests
   ObjectFormatsTest.cpp
   ObjectLinkingLayerTest.cpp
   OrcCAPITest.cpp
+  ${ORC_RT_COMPAT_TESTS}
   OrcTestCommon.cpp
   ResourceTrackerTest.cpp
   RTDyldObjectLinkingLayerTest.cpp

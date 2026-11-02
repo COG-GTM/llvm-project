@@ -14,6 +14,7 @@ unittest("OrcJITTests") {
     "//llvm/lib/TargetParser",
     "//llvm/lib/Testing/Support",
   ]
+  include_dirs = [ "//compiler-rt/lib" ]
   sources = [
     "CallSPSViaEPCTest.cpp",
     "CallableTraitsHelperTest.cpp",
@@ -37,6 +38,7 @@ unittest("OrcJITTests") {
     "ObjectFormatsTest.cpp",
     "ObjectLinkingLayerTest.cpp",
     "OrcCAPITest.cpp",
+    "OrcRTJITSymbolFlagsTest.cpp",
     "OrcTestCommon.cpp",
     "RTDyldObjectLinkingLayerTest.cpp",
     "ReOptimizeLayerTest.cpp",

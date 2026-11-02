@@ -28,7 +28,9 @@ public:
   using UnderlyingType = uint8_t;
   using TargetFlagsType = uint8_t;
 
-  /// These values must be kept in sync with \c JITSymbolFlags in the JIT.
+  /// These values must be kept in sync with \c llvm::JITSymbolFlags in
+  /// llvm/include/llvm/ExecutionEngine/JITSymbol.h. This is checked by
+  /// llvm/unittests/ExecutionEngine/Orc/OrcRTJITSymbolFlagsTest.cpp.
   enum FlagNames : UnderlyingType {
     None = 0,
     HasError = 1U << 0,

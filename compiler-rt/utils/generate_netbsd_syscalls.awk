@@ -26,6 +26,8 @@
 BEGIN {
   # hardcode the script name
   script_name = "generate_netbsd_syscalls.awk"
+  script_path = "compiler-rt/utils/" script_name
+  checker_path = "compiler-rt/utils/check_netbsd_syscalls.py"
   outputh = "../include/sanitizer/netbsd_syscall_hooks.h"
   outputinc = "../lib/sanitizer_common/sanitizer_syscalls_netbsd.inc"
 
@@ -248,9 +250,7 @@ END {
   pcmd("//")
   pcmd("// DO NOT EDIT! THIS FILE HAS BEEN GENERATED!")
   pcmd("//")
-  pcmd("// Generated with: " script_name)
-  pcmd("// Generated date: " strftime("%F"))
-  pcmd("// Generated from: " syscallmasterversion)
+  pbanner()
   pcmd("//")
   pcmd("//===----------------------------------------------------------------------===//")
   pcmd("#ifndef SANITIZER_NETBSD_SYSCALL_HOOKS_H")
@@ -418,9 +418,7 @@ END {
   pcmd("//")
   pcmd("// DO NOT EDIT! THIS FILE HAS BEEN GENERATED!")
   pcmd("//")
-  pcmd("// Generated with: " script_name)
-  pcmd("// Generated date: " strftime("%F"))
-  pcmd("// Generated from: " syscallmasterversion)
+  pbanner()
   pcmd("//")
   pcmd("//===----------------------------------------------------------------------===//")
   pcmd("")
@@ -528,9 +526,24 @@ END {
   system("sed -i 's,^ \\([^ ]\\),  \\1,' " outputinc)
 }
 
+function pbanner()
+{
+  pcmd("// Generated with: " script_path)
+  pcmd("// Regenerate with (from compiler-rt/utils, on the newest NetBSD):")
+  pcmd("//   ./" script_name " /usr/src/sys/kern/syscalls.master")
+  pcmd("// Verify with: python3 " checker_path)
+  pcmd("// Generated date: " strftime("%F"))
+  pcmd("// Generated from: " syscallmasterversion)
+}
+
 function usage()
 {
-  print "Usage: " script_name " syscalls.master"
+  print "Usage (from compiler-rt/utils): ./" script_name " syscalls.master"
+  print "Example: ./" script_name " /usr/src/sys/kern/syscalls.master"
+  print "Writes both:"
+  print "  compiler-rt/include/sanitizer/netbsd_syscall_hooks.h"
+  print "  compiler-rt/lib/sanitizer_common/sanitizer_syscalls_netbsd.inc"
+  print "Afterwards run: python3 " checker_path
   abnormal_exit = 1
   exit 1
 }

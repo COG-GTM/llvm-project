@@ -23,14 +23,7 @@
 #include <unwind.h>
 #include <thread>
 #include <tuple>
-#include <__cxxabi_config.h>
 
-// TODO: dump version back to 14 once clang is updated on the CI.
-#if defined(_LIBCXXABI_ARM_EHABI) && defined(__clang__) && __clang_major__ < 15
-// _Unwind_ForcedUnwind is not available or broken before version 14.
-int main(int, char**) { return 0; }
-
-#else
 static bool destructorCalled = false;
 
 struct myClass {
@@ -79,4 +72,3 @@ int main(int, char**) {
   t.join();
   return -1;
 }
-#endif

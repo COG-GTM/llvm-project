@@ -708,6 +708,18 @@ its enabled sub-projects. Nearly all of these variable names begin with
   Generate build targets for the LLVM examples. Defaults to ON. You can use this
   option to disable the generation of build targets for the LLVM examples.
 
+**LLVM_INCLUDE_SPIRV_TOOLS_TESTS**:BOOL
+  Enable the SPIR-V backend tests that validate or reassemble the generated
+  binaries with the `SPIRV-Tools <https://github.com/KhronosGroup/SPIRV-Tools>`_
+  ``spirv-val``, ``spirv-as``, ``spirv-dis`` and ``spirv-link`` tools. When
+  enabled, ``llvm/tools/spirv-tools`` downloads and builds SPIRV-Tools (this
+  requires ``git`` and network access) unless the ``SPIRV_VAL``, ``SPIRV_AS``,
+  ``SPIRV_DIS`` and ``SPIRV_LINK`` variables all point to existing binaries.
+  When disabled, the ``RUN`` lines guarded by ``%if spirv-tools`` are skipped,
+  so ``check-llvm-codegen-spirv`` can pass locally while the SPIR-V premerge
+  check, which enables this option, fails. Defaults to OFF. See
+  :ref:`spirv-testing` for the configuration used by the premerge check.
+
 **LLVM_INCLUDE_TESTS**:BOOL
   Generate build targets for the LLVM unit tests. Defaults to ON. You can use
   this option to disable the generation of build targets for the LLVM unit

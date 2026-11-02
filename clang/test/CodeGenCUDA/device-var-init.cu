@@ -16,8 +16,8 @@
 #include "Inputs/cuda.h"
 #endif
 
-// Use the types we share with Sema tests.
-#include "Inputs/cuda-initializers.h"
+// Use the types we share with SemaCUDA/device-var-init.cu.
+#include "../SemaCUDA/Inputs/cuda-initializers.h"
 
 __device__ int d_v;
 // DEVICE: @d_v ={{.*}} addrspace(1) externally_initialized global i32 0,
@@ -92,6 +92,28 @@ __shared__ ECD s_ecd;
 __constant__ ECD c_ecd;
 // DEVICE: @c_ecd ={{.*}} addrspace(4) externally_initialized constant %struct.ECD zeroinitializer,
 // HOST:   @c_ecd = internal global %struct.ECD undef,
+
+// constexpr empty ctor -- allowed
+__device__ CEEC d_ceec;
+// DEVICE: @d_ceec ={{.*}} addrspace(1) externally_initialized global %struct.CEEC undef,
+// HOST:   @d_ceec = internal global %struct.CEEC undef,
+__shared__ CEEC s_ceec;
+// DEVICE: @s_ceec ={{.*}} addrspace(3) global %struct.CEEC undef,
+// HOST:   @s_ceec = internal global %struct.CEEC undef,
+__constant__ CEEC c_ceec;
+// DEVICE: @c_ceec ={{.*}} addrspace(4) externally_initialized constant %struct.CEEC undef,
+// HOST:   @c_ceec = internal global %struct.CEEC undef,
+
+// compiler generated trivial ctor -- allowed
+__device__ CGTC d_cgtc;
+// DEVICE: @d_cgtc ={{.*}} addrspace(1) externally_initialized global %struct.CGTC zeroinitializer,
+// HOST:   @d_cgtc = internal global %struct.CGTC undef,
+__shared__ CGTC s_cgtc;
+// DEVICE: @s_cgtc ={{.*}} addrspace(3) global %struct.CGTC undef,
+// HOST:   @s_cgtc = internal global %struct.CGTC undef,
+__constant__ CGTC c_cgtc;
+// DEVICE: @c_cgtc ={{.*}} addrspace(4) externally_initialized constant %struct.CGTC zeroinitializer,
+// HOST:   @c_cgtc = internal global %struct.CGTC undef,
 
 // empty templated constructor -- allowed with no arguments
 __device__ ETC d_etc;

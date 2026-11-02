@@ -367,7 +367,7 @@ static bool shouldMerge(const WasmSection &sec) {
   // need to use names here.
   // For now, keep in sync with uses of wasm::WASM_SEG_FLAG_STRINGS in
   // MCObjectFileInfo::initWasmMCObjectFileInfo which creates these custom
-  // sections.
+  // sections. lld/test/wasm/merge-string-debug-mc.test checks both lists.
   return sec.Name == ".debug_str" || sec.Name == ".debug_str.dwo" ||
          sec.Name == ".debug_line_str";
 }

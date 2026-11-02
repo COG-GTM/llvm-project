@@ -309,6 +309,23 @@ def get_lldb_version_string():
     return match.group(1)
 
 
+def parse_version(version_string):
+    """Return a comparable object for a dotted numeric debugger version.
+
+    Uses the 'packaging' module when it is installed. Otherwise fall back to
+    comparing the numeric components, which is sufficient for the
+    digits-and-dots strings returned by get_{gdb,lldb}_version_string.
+    """
+    try:
+        from packaging import version
+    except ImportError:
+        parts = [int(p) for p in version_string.split(".") if p]
+        while parts and parts[-1] == 0:
+            parts.pop()
+        return tuple(parts)
+    return version.parse(version_string)
+
+
 def set_lldb_formatters_compatibility_feature():
     current_lldb_version = get_lldb_version_string()
     if not current_lldb_version:
@@ -322,13 +339,7 @@ def set_lldb_formatters_compatibility_feature():
         # which some LLVM data formatters depend on.
         min_required_lldb_version = "19.0.0"
 
-    try:
-        from packaging import version
-    except:
-        lit_config.fatal("Running lldb tests requires the packaging package")
-        return
-
-    if version.parse(current_lldb_version) < version.parse(min_required_lldb_version):
+    if parse_version(current_lldb_version) < parse_version(min_required_lldb_version):
         raise ValueError(
             f"using version {current_lldb_version} whereas a version >= {min_required_lldb_version} is required"
         )
@@ -341,13 +352,7 @@ def set_apple_lldb_pre_1000_feature():
     if not apple_lldb_vers:
         return
 
-    try:
-        from packaging import version
-    except:
-        lit_config.fatal("Running lldb tests requires the packaging package")
-        return
-
-    if version.parse(apple_lldb_vers) < version.parse("1000"):
+    if parse_version(apple_lldb_vers) < parse_version("1000"):
         config.available_features.add("apple-lldb-pre-1000")
 
 
@@ -372,11 +377,7 @@ else:
 
 if dwarf_version_string and gdb_version_string:
     if int(dwarf_version_string) >= 5:
-        try:
-            from packaging import version
-        except:
-            lit_config.fatal("Running gdb tests requires the packaging package")
-        if version.parse(gdb_version_string) < version.parse("10.1"):
+        if parse_version(gdb_version_string) < parse_version("10.1"):
             # Example for llgdb-tests, which use lldb on darwin but gdb elsewhere:
             # XFAIL: !system-darwin && gdb-clang-incompatibility
             config.available_features.add("gdb-clang-incompatibility")

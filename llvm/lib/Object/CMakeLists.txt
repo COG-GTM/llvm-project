@@ -16,6 +16,7 @@ add_llvm_component_library(LLVMObject
   FaultMapParser.cpp
   IRObjectFile.cpp
   IRSymtab.cpp
+  MachOCodeSignature.cpp
   MachOObjectFile.cpp
   MachOUniversal.cpp
   Minidump.cpp

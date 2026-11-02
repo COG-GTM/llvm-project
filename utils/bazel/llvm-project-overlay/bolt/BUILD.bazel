@@ -124,8 +124,9 @@ expand_template(
     name = "RuntimeLibraryVariables_inc",
     out = "include/bolt/RuntimeLibs/RuntimeLibraryVariables.inc",
     substitutions = {
-        # FIXME this is a total guess
-        "@LLVM_LIBDIR_SUFFIX@": "lib",
+        # Matches the CMake default for LLVM_LIBDIR_SUFFIX; RuntimeLibrary.cpp
+        # appends it to "lib".
+        "@LLVM_LIBDIR_SUFFIX@": "",
     },
     template = "include/bolt/RuntimeLibs/RuntimeLibraryVariables.inc.in",
 )

@@ -98,6 +98,15 @@ platform-specific are selected for in defines. Many are also hardcoded to the
 values currently used by all supported configurations. If there is a
 configuration you'd like to use that isn't supported, please send a patch.
 
+## Known libc coverage gaps
+
+Some libc targets that CMake builds and tests are still commented out in the
+Bazel overlay. They are marked with a `TODO` that points back here.
+
+| Target | Status | Blocker |
+| --- | --- | --- |
+| `//libc/test/src/unistd:syscall_test` | Disabled (`//libc:syscall` is built) | Needs a `full_build = True` test against `//libc:public_headers` for the `syscall(...)` macro in the public `<unistd.h>`. Its `testdata/` paths must also go through `libc_make_test_file_path`. |
+
 # Continuous Testing
 
 A [Buildkite pipeline](https://buildkite.com/llvm-project/upstream-bazel)

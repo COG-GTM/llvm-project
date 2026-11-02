@@ -200,8 +200,13 @@ libc_test(
 
 # TODO: add rules for functions modifying directories.
 
-#TODO: Enable once fullbuild is added to bazel, since this depends on a macro
-# definition in the public header
+# TODO: Enable syscall_test. Known Bazel coverage gap (see
+# utils/bazel/README.md, "Known libc coverage gaps"). `//libc:syscall` itself is
+# built, but this test calls the `syscall(...)` macro from LLVM libc's public
+# <unistd.h>. That needs `full_build = True` plus `//libc:public_headers`, since
+# the macro breaks the glibc <unistd.h> declaration of `syscall`. The test also
+# uses raw "testdata/..." paths, which do not exist in the Bazel runfiles tree;
+# they need to go through `libc_make_test_file_path`.
 
 # libc_test(
 #     name = "syscall_test",

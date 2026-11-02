@@ -1,0 +1,135 @@
+## Check that wasm-ld merges every custom section that MC creates with
+## WASM_SEG_FLAG_STRINGS. lld selects these sections by name in
+## shouldMerge(const WasmSection &) (InputFiles.cpp), which has to be kept in
+## sync with MCObjectFileInfo::initWasmMCObjectFileInfo. Unlike
+## merge-string-debug.s, the inputs here are produced by llc, so the section
+## names and contents come from MC.
+
+# RUN: rm -rf %t && split-file %s %t && cd %t
+
+## Pin the set of wasm sections MC marks as strings. Redeclaring an MC section
+## with different flags is an error, so each declaration without "S" fails for
+## exactly the strings sections. If this check fails, update shouldMerge() and
+## the checks below to match.
+# RUN: not llvm-mc -triple=wasm32-unknown-unknown sections.s -o /dev/null 2>&1 \
+# RUN:   | FileCheck sections.s --implicit-check-not=error:
+
+## DWARF v5 with single-file split DWARF puts strings in .debug_str,
+## .debug_line_str and .debug_str.dwo.
+# RUN: llc -filetype=obj -split-dwarf-file=foo.dwo foo.ll -o foo.o
+# RUN: llc -filetype=obj -split-dwarf-file=bar.dwo bar.ll -o bar.o
+
+# RUN: llvm-readobj -p .debug_str -p .debug_str.dwo -p .debug_line_str foo.o \
+# RUN:   | FileCheck %s --check-prefix=OBJ
+# OBJ: String dump of section '.debug_str':
+# OBJ: ] /proj
+# OBJ: String dump of section '.debug_str.dwo':
+# OBJ: ] shared producer
+# OBJ: String dump of section '.debug_line_str':
+# OBJ: ] /proj
+
+## With -O0, each input's strings are copied as-is, so shared strings repeat.
+# RUN: wasm-ld -O0 --no-entry --export-all foo.o bar.o -o O0.wasm
+# RUN: llvm-readobj -p .debug_str O0.wasm | grep -c '] /proj$' | FileCheck %s --check-prefix=TWO
+# RUN: llvm-readobj -p .debug_line_str O0.wasm | grep -c '] /proj$' | FileCheck %s --check-prefix=TWO
+# RUN: llvm-readobj -p .debug_str.dwo O0.wasm | grep -c '] shared producer$' | FileCheck %s --check-prefix=TWO
+
+## With the default -O1, each section is merged.
+# RUN: wasm-ld --no-entry --export-all foo.o bar.o -o O1.wasm
+# RUN: llvm-readobj -p .debug_str O1.wasm | grep -c '] /proj$' | FileCheck %s --check-prefix=ONE
+# RUN: llvm-readobj -p .debug_line_str O1.wasm | grep -c '] /proj$' | FileCheck %s --check-prefix=ONE
+# RUN: llvm-readobj -p .debug_str.dwo O1.wasm | grep -c '] shared producer$' | FileCheck %s --check-prefix=ONE
+
+## Merging also works on the output of a relocatable link.
+# RUN: wasm-ld -r foo.o bar.o -o r.o
+# RUN: wasm-ld -O1 --no-entry --export-all r.o -o r.wasm
+# RUN: llvm-readobj -p .debug_str r.wasm | grep -c '] /proj$' | FileCheck %s --check-prefix=ONE
+# RUN: llvm-readobj -p .debug_line_str r.wasm | grep -c '] /proj$' | FileCheck %s --check-prefix=ONE
+# RUN: llvm-readobj -p .debug_str.dwo r.wasm | grep -c '] shared producer$' | FileCheck %s --check-prefix=ONE
+
+## The merged output is still valid DWARF that refers to both inputs.
+# RUN: llvm-dwarfdump --debug-line O1.wasm | FileCheck %s --check-prefix=LINE
+# LINE: include_directories[  0] = "/proj"
+# LINE: name: "foo.c"
+# LINE: include_directories[  0] = "/proj"
+# LINE: name: "bar.c"
+
+# TWO: {{^}}2{{$}}
+# ONE: {{^}}1{{$}}
+
+#--- sections.s
+## Every section created by MCObjectFileInfo::initWasmMCObjectFileInfo.
+# CHECK: error: changed section flags for .debug_str, expected: 0x1
+# CHECK: error: changed section flags for .debug_line_str, expected: 0x1
+# CHECK: error: changed section flags for .debug_str.dwo, expected: 0x1
+.section .debug_str,"",@
+.section .debug_line_str,"",@
+.section .debug_line,"",@
+.section .debug_loc,"",@
+.section .debug_abbrev,"",@
+.section .debug_aranges,"",@
+.section .debug_ranges,"",@
+.section .debug_macinfo,"",@
+.section .debug_macro,"",@
+.section .debug_cu_index,"",@
+.section .debug_tu_index,"",@
+.section .debug_info,"",@
+.section .debug_frame,"",@
+.section .debug_pubnames,"",@
+.section .debug_pubtypes,"",@
+.section .debug_gnu_pubnames,"",@
+.section .debug_gnu_pubtypes,"",@
+.section .debug_names,"",@
+.section .debug_str_offsets,"",@
+.section .debug_addr,"",@
+.section .debug_rnglists,"",@
+.section .debug_loclists,"",@
+.section .debug_info.dwo,"",@
+.section .debug_types.dwo,"",@
+.section .debug_abbrev.dwo,"",@
+.section .debug_str.dwo,"",@
+.section .debug_line.dwo,"",@
+.section .debug_loc.dwo,"",@
+.section .debug_str_offsets.dwo,"",@
+.section .debug_rnglists.dwo,"",@
+.section .debug_macinfo.dwo,"",@
+.section .debug_macro.dwo,"",@
+.section .debug_loclists.dwo,"",@
+
+#--- foo.ll
+target triple = "wasm32-unknown-unknown"
+
+define void @foo() !dbg !5 {
+  ret void, !dbg !8
+}
+
+!llvm.dbg.cu = !{!0}
+!llvm.module.flags = !{!2, !3}
+
+!0 = distinct !DICompileUnit(language: DW_LANG_C11, file: !1, producer: "shared producer", emissionKind: FullDebug, splitDebugFilename: "foo.dwo")
+!1 = !DIFile(filename: "foo.c", directory: "/proj")
+!2 = !{i32 7, !"Dwarf Version", i32 5}
+!3 = !{i32 2, !"Debug Info Version", i32 3}
+!5 = distinct !DISubprogram(name: "foo", scope: !1, file: !1, line: 1, type: !6, spFlags: DISPFlagDefinition, unit: !0)
+!6 = !DISubroutineType(types: !7)
+!7 = !{null}
+!8 = !DILocation(line: 1, scope: !5)
+
+#--- bar.ll
+target triple = "wasm32-unknown-unknown"
+
+define void @bar() !dbg !5 {
+  ret void, !dbg !8
+}
+
+!llvm.dbg.cu = !{!0}
+!llvm.module.flags = !{!2, !3}
+
+!0 = distinct !DICompileUnit(language: DW_LANG_C11, file: !1, producer: "shared producer", emissionKind: FullDebug, splitDebugFilename: "bar.dwo")
+!1 = !DIFile(filename: "bar.c", directory: "/proj")
+!2 = !{i32 7, !"Dwarf Version", i32 5}
+!3 = !{i32 2, !"Debug Info Version", i32 3}
+!5 = distinct !DISubprogram(name: "bar", scope: !1, file: !1, line: 1, type: !6, spFlags: DISPFlagDefinition, unit: !0)
+!6 = !DISubroutineType(types: !7)
+!7 = !{null}
+!8 = !DILocation(line: 1, scope: !5)

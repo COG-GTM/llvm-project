@@ -12,6 +12,10 @@ Details: isl/LICENSE
 # imath
 License: MIT-STYLE
 Details: isl/imath/LICENSE
+Notes: isl/imath/doc.md is generated from doc.md.in and the imath headers by
+       isl/imath/tools/mkdoc.py (Python 3). Polly's CMake build does not
+       regenerate it; after an update, run 'make check-doc' (or 'make doc.md')
+       in isl/imath to confirm it still matches the headers.
 
 To update these libraries run 'autoreconf -i && ./configure && make dist' in
 the isl git directory and move the resulting files into lib/External/isl.

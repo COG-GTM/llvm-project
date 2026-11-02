@@ -91,6 +91,48 @@ a new corresponding ``BUILD.gn`` file below ``llvm/utils/gn/secondary/``.
 If the dependencies in a ``CMakeLists.txt`` file have been changed, you have to
 manually analyze and fix.
 
+The script also compares ``LLVM_ALL_TARGETS`` and
+``LLVM_ALL_EXPERIMENTAL_TARGETS`` in ``llvm/CMakeLists.txt`` with the target
+lists in ``llvm/utils/gn/secondary/llvm/lib/Target/targets.gni``. It also
+checks the ``targets_with_*.gni`` capability lists against the backends in
+``llvm/lib/Target/``. If a target is added, removed, or promoted in CMake, it
+reports what to change. See `Adding a target`_.
+
+.. _Adding a target:
+
+Adding a target
+===============
+
+``targets.gni`` puts each CMake target in exactly one list.
+``llvm_all_stable_targets`` and ``llvm_all_experimental_targets`` hold targets
+that GN can build. ``llvm_unported_stable_targets`` and
+``llvm_unported_experimental_targets`` hold targets that exist in CMake but are
+not ported to GN yet. ``llvm_targets_to_build = "all"`` builds only the ported
+stable targets, so it can be a subset of CMake's ``all``. Asking for an unported
+target stops ``gn gen`` with an error.
+
+When CMake gets a new target, add it to the matching ``llvm_unported_*`` list
+at least. To port a target ``T``:
+
+- In ``llvm/utils/gn/secondary/llvm/lib/Target/targets.gni``, move ``T`` from
+  ``llvm_unported_*_targets`` to ``llvm_all_*_targets``. Then add a
+  ``target == "T"`` branch to the validation chain. Use the "Nothing to do"
+  branch, or add an ``llvm_build_T`` variable if a ``BUILD.gn`` file needs to
+  know whether ``T`` is built (for example, for conditional unittests).
+- If ``T`` has no ``AsmParser/`` or ``Disassembler/``, list it in
+  ``targets_with_asm_parsers.gni`` or ``targets_with_disassemblers.gni``. If
+  it supports llvm-exegesis (``llvm/tools/llvm-exegesis/lib/T/``) or
+  llvm-mca (``llvm/lib/Target/T/MCA/``), list it in
+  ``targets_with_exegesis.gni`` or ``targets_with_mcas.gni``.
+- Create ``BUILD.gn`` files for ``llvm/lib/Target/T/`` and its subdirectories
+  below ``llvm/utils/gn/secondary/``. Copy the layout of an existing target,
+  including the ``tablegen`` targets that match its CMakeLists.txt.
+- Add ``BUILD.gn`` files for ``llvm/unittests/Target/T/`` and the other
+  target-specific directories (``llvm/tools/llvm-exegesis/lib/T``,
+  ``llvm/unittests/tools/llvm-exegesis/T``, ...). Add them to the dependency
+  lists that are guarded by ``llvm_build_T``.
+- Run ``sync_source_lists_from_cmake.py``. It should report nothing.
+
 .. _Philosophy:
 
 Philosophy

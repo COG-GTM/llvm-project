@@ -227,9 +227,15 @@ View the diff from {self.name} here.
         idt_path: str,
         compile_commands: str,
     ) -> bool:
-        """Run idt tool on the given files with category-specific configuration."""
+        """Run idt tool on the given files with category-specific configuration.
+
+        Returns False if idt failed on any file, in which case that file was not
+        (fully) checked.
+        """
         if not files:
             return True
+
+        success = True
 
         if args.verbose:
             print(
@@ -254,9 +260,11 @@ View the diff from {self.name} here.
             if args.verbose:
                 print(f"Running: {' '.join(cmd)}", file=sys.stderr)
 
-            subprocess.run(cmd)
+            if subprocess.run(cmd).returncode != 0:
+                print(f"Error: idt failed on {file}", file=sys.stderr)
+                success = False
 
-        return True
+        return success
 
     def get_changed_files(self, args: IdsCheckArgs) -> List[str]:
         """Get list of changed files between revisions."""
@@ -276,9 +284,9 @@ View the diff from {self.name} here.
         files = proc.stdout.decode("utf-8").strip().split("\n")
         return [f for f in files if f]
 
-    def check_for_diff(self) -> Optional[str]:
-        """Check if there are any uncommitted changes after running idt."""
-        cmd = ["git", "diff"]
+    def check_for_diff(self, files: List[str]) -> Optional[str]:
+        """Check if idt left any uncommitted changes in the given files."""
+        cmd = ["git", "diff", "--"] + files
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         diff = proc.stdout.decode("utf-8")
@@ -337,17 +345,18 @@ View the diff from {self.name} here.
             return 0
 
         # Process each category
-        any_processed = False
+        checked_files = []
+        idt_failed = False
         for category in self.FILE_CATEGORIES:
             filtered_files = self.filter_files_for_category(changed_files, category)
             if filtered_files:
-                any_processed = True
+                checked_files.extend(filtered_files)
                 if not self.run_idt_on_files(
                     filtered_files, category, args, idt_path, compile_commands
                 ):
-                    return 1
+                    idt_failed = True
 
-        if not any_processed:
+        if not checked_files:
             if args.verbose:
                 print(
                     "No relevant header files changed, skipping ids check",
@@ -356,8 +365,19 @@ View the diff from {self.name} here.
             return 0
 
         # Check for differences
-        diff = self.check_for_diff()
+        diff = self.check_for_diff(checked_files)
         should_update_gh = args.token is not None and args.repo is not None
+
+        if idt_failed:
+            if diff:
+                print(diff)
+            print(
+                "\nError: idt failed, so LLVM_ABI annotations were not fully "
+                "checked. Make sure the TableGen targets for the headers are built "
+                f"and that {compile_commands} is up to date. See {DOCS_URL}",
+                file=sys.stderr,
+            )
+            return 1
 
         if diff:
             if should_update_gh:
@@ -400,6 +420,31 @@ def hook_main() -> int:
     if not changed_files:
         return 0
 
+    # idt checks and edits the working tree copy, so it must match what is being
+    # committed.
+    checker = IdsChecker()
+    headers = [
+        f
+        for category in checker.FILE_CATEGORIES
+        for f in checker.filter_files_for_category(changed_files, category)
+    ]
+    if headers:
+        proc = subprocess.run(
+            ["git", "diff", "--name-only", "--"] + headers,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        partially_staged = proc.stdout.decode("utf-8").split()
+        if partially_staged:
+            print(
+                "Error: these headers have unstaged changes, so the ids check "
+                "cannot check what is being committed. Stage or stash them "
+                "(e.g. git stash --keep-index) first:\n  "
+                + "\n  ".join(partially_staged),
+                file=sys.stderr,
+            )
+            return 1
+
     args = IdsCheckArgs(
         argparse.Namespace(
             start_rev=None,
@@ -412,7 +457,7 @@ def hook_main() -> int:
             verbose=bool(os.environ.get("IDS_HOOK_VERBOSE")),
         )
     )
-    return IdsChecker().run(args)
+    return checker.run(args)
 
 
 if __name__ == "__main__":

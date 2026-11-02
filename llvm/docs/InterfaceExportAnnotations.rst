@@ -156,9 +156,9 @@ phony$"`` lists them.
 
 Running the Check
 ~~~~~~~~~~~~~~~~~
-From the root of the ``llvm-project`` checkout, with no unrelated unstaged
-changes (``idt`` edits the headers in place and the check reports the whole
-``git diff``), check the headers changed on the current branch:
+From the root of the ``llvm-project`` checkout, with no uncommitted changes to
+the headers being checked (``idt`` edits them in place and the check reports
+the resulting ``git diff``), check the headers changed on the current branch:
 
 .. code-block:: console
 
@@ -172,7 +172,9 @@ annotations ``idt`` added, and keep or adjust them as described in
 
 The script can also be installed as a pre-commit hook, which checks the staged
 files using ``IDT_PATH`` and ``COMPILE_COMMANDS_PATH`` (if either is unset the
-hook prints a warning and does not block the commit):
+hook prints a warning and does not block the commit). It refuses to check
+headers that are only partially staged; stage the rest or use
+``git stash --keep-index`` first:
 
 .. code-block:: console
 

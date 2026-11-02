@@ -12,8 +12,9 @@ else
   CC=clang CXX=clang++ cmake -G Ninja -DLLVM_ENABLE_PROJECTS=clang -DLLVM_ENABLE_RUNTIMES=compiler-rt -DLLVM_ENABLE_WERROR=ON -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_ASSERTIONS=ON "$LLVM_SRC"
 fi
 ninja
-ninja check-sanitizer
-ninja check-tsan
-ninja check-asan
-ninja check-msan
-ninja check-lsan
+# Per-sanitizer check targets only exist in the runtimes sub-build.
+ninja -C runtimes/runtimes-bins check-sanitizer
+ninja -C runtimes/runtimes-bins check-tsan
+ninja -C runtimes/runtimes-bins check-asan
+ninja -C runtimes/runtimes-bins check-msan
+ninja -C runtimes/runtimes-bins check-lsan

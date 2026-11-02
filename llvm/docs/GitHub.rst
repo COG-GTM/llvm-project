@@ -568,6 +568,10 @@ If a commit you want to backport does not apply cleanly, you may resolve
 the conflicts locally and then create a pull request against the release
 branch.  Just make sure to add the release milestone to the pull request.
 
+Pull requests against a release branch that touch ``llvm/`` also run the LLVM
+ABI Tests workflow.  See :ref:`abi-checks` for what it checks and how to
+reproduce a failure locally.
+
 Getting admin access to CI infrastructure
 =========================================
 

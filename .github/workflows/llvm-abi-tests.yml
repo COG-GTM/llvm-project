@@ -1,3 +1,6 @@
+# Compares the ABI of libLLVM.so on release branches against a baseline release.
+# Documented, with local reproduction steps, in llvm/docs/HowToReleaseLLVM.rst
+# ("ABI Compatibility Checks on Release Branches").
 name: LLVM ABI Tests
 
 permissions:
@@ -50,12 +53,10 @@ jobs:
       - name: Setup Variables
         id: vars
         run: |
-          # C++ ABI:
-          # 18.1.0 we aren't doing ABI checks.
-          # 18.1.1 We want to check 18.1.0.
-          # C ABI:
-          # 18.1.0 We want to check 17.0.x
-          # 18.1.1 We want to check 18.1.0
+          # X.1.0 (before the first release): compare only the C API
+          #   (include/llvm-c) against llvmorg-<X-1>.1.0; failures are
+          #   reported but do not fail the job.
+          # X.1.Z, Z > 0: compare the full C/C++ ABI against llvmorg-X.1.0.
           echo "BASELINE_VERSION_MINOR=1" >> "$GITHUB_OUTPUT"
           if [ ${{ steps.version.outputs.patch }} -eq 0 ]; then
             {

@@ -792,6 +792,8 @@ for llvm users and not imposing a big burden on llvm developers:
 * Legacy bitcode may have degraded performance when compared to
   the compiled output with the legacy compiler.
 
+.. _c-api-changes:
+
 C API Changes
 -------------
 
@@ -806,6 +808,9 @@ C API Changes
   that go on that branch, with the exception that we will fix an unintentional
   C API break that will keep the release consistent with both the previous and
   next release.
+  The :ref:`LLVM ABI Tests <abi-checks>` workflow checks release branch pull
+  requests for C API (and, after the X.1.0 release, C++ ABI) breaks.  That
+  section explains what it compares and how to reproduce it locally.
 
 * Testing: Patches to the C API are expected to come with tests just like any
   other patch.

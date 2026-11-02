@@ -296,6 +296,187 @@ Backport Requests
 Instructions for requesting a backport to a stable branch can be found
 :ref:`here <backporting>`.
 
+.. _abi-checks:
+
+ABI Compatibility Checks on Release Branches
+--------------------------------------------
+
+Pull requests and pushes to a ``release/**`` branch that touch ``llvm/**`` (or
+the workflow file itself) run the *LLVM ABI Tests* GitHub workflow,
+``.github/workflows/llvm-abi-tests.yml``.  This workflow checks the
+:ref:`release patch rules <release-patch-rules>` that bug fix releases must keep
+ABI compatibility with the X.1.0 release, and checks the C API release-stability
+promise in the :ref:`Developer Policy <c-api-changes>`.  The jobs run only in the
+``llvm`` GitHub organization, so they are skipped on forks.
+
+What is compared
+^^^^^^^^^^^^^^^^
+
+The workflow builds ``libLLVM.so`` twice: once from a baseline release tag of
+``llvm/llvm-project`` and once from the commit under test.  It dumps the ABI of
+each build with ``abi-dumper`` and compares the two dumps with
+``abi-compliance-checker``.  The workflow reads the version of the branch under
+test (``X.Y.Z``) with ``llvm/utils/release/get-llvm-version.sh`` and uses it to
+pick the baseline and the headers that make up the checked interface:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Branch version
+     - Baseline tag
+     - Interface checked
+     - Job fails on a break
+   * - ``X.1.0`` (until X.1.0 is released)
+     - ``llvmorg-<X-1>.1.0``
+     - C API only: headers in ``include/llvm-c`` and exported ``LLVM*``
+       symbols
+     - No, report only
+   * - ``X.1.Z`` with ``Z > 0``
+     - ``llvmorg-X.1.0``
+     - Full C and C++ ABI: every installed LLVM header
+     - Yes
+
+For example, a backport to ``release/21.x`` after 21.1.0 has shipped (so the
+branch version is ``21.1.1`` or later) is checked against ``llvmorg-21.1.0``
+with every installed header.  A backport to ``release/22.x`` before 22.1.0 is
+released is checked against ``llvmorg-21.1.0`` with only the C API.
+
+Before X.1.0 ships, the C++ ABI is not checked at all, because it is allowed to
+change between major releases.  The C API is checked against the previous
+major release, but the job never fails on that comparison.  The compare step
+runs ``abi-compliance-checker ... || test "$ABI_HEADERS" = "llvm-c"``, so a C
+API incompatibility is only recorded in the uploaded report.  This matches the
+*best effort* C API stability guarantee across major releases.  It is up to the
+patch author, the reviewers and the release manager to read the report and
+catch any unintended C API break.
+
+Symbol versions (``LLVM_<major>``) are removed from both dumps before the
+comparison so that builds from different major versions can be compared.
+
+Build environment
+^^^^^^^^^^^^^^^^^
+
+Both builds and the comparison run in the ``ghcr.io/llvm/ci-ubuntu-24.04-abi-tests``
+container, pinned by digest in the ``container: image:`` field of the
+workflow.  The image is built from the ``ci-container-abi-tests`` target of
+``.github/workflows/containers/github-action-ci-tooling/Dockerfile``.  It is an
+Ubuntu 24.04 image with clang from an LLVM release (set as ``CC``/``CXX``),
+CMake, Ninja, and the Ubuntu ``abi-dumper``, ``abi-compliance-checker`` and
+``universal-ctags`` packages.  To print the tool versions in the image the
+workflow uses, run::
+
+  $ docker run --rm <image> sh -c 'abi-dumper -dumpversion; abi-compliance-checker -dumpversion'
+
+``abi-dumper`` reads DWARF debug information, which is why the library is built
+in ``Debug`` mode.
+
+Reading the CI results
+^^^^^^^^^^^^^^^^^^^^^^
+
+Each run uploads these artifacts:
+
+* ``compat-report-<sha>``: the ``compat_reports/`` directory written by
+  ``abi-compliance-checker``.  Open
+  ``compat_reports/libLLVM.so/<baseline>_to_<sha>/compat_report.html`` in a
+  browser.  It lists the added and removed symbols and the problems found in
+  data types and functions, ranked by severity, with separate binary and source
+  compatibility views.  This artifact is uploaded even when the comparison
+  fails.
+* ``build-baseline`` and ``build-latest``: the ``.abi`` dumps of the two builds.
+* ``symbol-list``: the exported ``LLVM*`` C symbols of the baseline build.  This
+  is empty when the full ABI is checked.
+
+If the report shows a break caused by your backport, rework the patch so that
+it keeps the ABI (for example, do not change the layout of public classes, the
+set of virtual functions, or the signatures of exported functions), or discuss
+the change with the release manager.
+
+Reproducing the check locally
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To re-run only the comparison, download the ``build-baseline``,
+``build-latest`` and ``symbol-list`` artifacts from the workflow run into
+directories with those names.  Then run the compare step in the container::
+
+  $ docker run --rm -v "$PWD:/abi" -w /abi <image> sh -c '
+      if [ -s symbol-list/llvm.symbols ]; then
+        EXTRA_ARGS="-symbols-list symbol-list/llvm.symbols"
+      fi
+      abi-compliance-checker $EXTRA_ARGS -l libLLVM.so \
+        -old build-baseline/*.abi -new build-latest/*.abi'
+
+To reproduce the whole check, for example to test a fix before you push it,
+build and dump both sides yourself.  Expect a ``Debug`` build of
+``libLLVM.so`` to need tens of GB of disk space per tree.
+
+#. Pick the baseline and headers from the table above.  For example, for a
+   ``release/21.x`` branch at ``21.1.3``::
+
+     $ llvm/utils/release/get-llvm-version.sh
+     21.1.3
+     $ BASELINE=llvmorg-21.1.0 BASELINE_MAJOR=21 MAJOR=21 ABI_HEADERS=.
+
+   For a branch at ``X.1.0``, use ``BASELINE=llvmorg-<X-1>.1.0``,
+   ``BASELINE_MAJOR=<X-1>``, ``MAJOR=X`` and ``ABI_HEADERS=llvm-c``.
+
+#. Check out the baseline next to your working tree::
+
+     $ git fetch https://github.com/llvm/llvm-project.git tag $BASELINE
+     $ git worktree add ../abi-baseline $BASELINE
+
+#. Start the container used by the workflow, mounting the parent directory and
+   passing the variables in::
+
+     $ docker run --rm -it -u "$(id -u):$(id -g)" -v "$(cd .. && pwd):/src" \
+         -e BASELINE -e BASELINE_MAJOR -e MAJOR -e ABI_HEADERS \
+         <image> bash
+
+#. In the container, build, install and dump both trees.  These are the same
+   commands as the workflow's ``Configure``, ``Build`` and ``Dump ABI`` steps.
+   ``install-LLVM`` runs twice because the first run does not install the
+   ``libLLVM.so`` symlink (a known bug).  Replace ``llvm-project`` with the name
+   of your working tree::
+
+     # abi_dump <source dir> <label> <major version of that tree>
+     abi_dump() {
+       cd "/src/$1"
+       cmake -B build-abi -G Ninja -DCMAKE_BUILD_TYPE=Debug \
+         -DLLVM_TARGETS_TO_BUILD="" -DLLVM_BUILD_LLVM_DYLIB=ON \
+         -DCMAKE_INSTALL_PREFIX="$PWD/install-abi" llvm
+       ninja -C build-abi install-LLVM
+       ninja -C build-abi install-LLVM
+       ninja -C build-abi install-llvm-headers
+       EXTRA_ARGS=
+       if [ "$ABI_HEADERS" = llvm-c ]; then
+         nm install-abi/lib/libLLVM.so | awk '/T _LLVM/ || /T LLVM/ { print $3 }' \
+           | sort -u | sed -e 's/^_//g' > llvm.symbols
+         EXTRA_ARGS="-symbols-list llvm.symbols"
+       else
+         : > llvm.symbols
+       fi
+       abi-dumper $EXTRA_ARGS -lver "$2" -skip-cxx \
+         -public-headers "install-abi/include/$ABI_HEADERS" \
+         -o "/src/$2.abi" install-abi/lib/libLLVM.so
+       sed -i "s/LLVM_$3/LLVM_NOVERSION/" "/src/$2.abi"
+     }
+     abi_dump abi-baseline "$BASELINE" "$BASELINE_MAJOR"
+     abi_dump llvm-project latest "$MAJOR"
+
+#. Compare the dumps, using the baseline's symbol list as the workflow does::
+
+     cd /src
+     EXTRA_ARGS=
+     if [ -s abi-baseline/llvm.symbols ]; then
+       EXTRA_ARGS="-symbols-list abi-baseline/llvm.symbols"
+     fi
+     abi-compliance-checker $EXTRA_ARGS -l libLLVM.so \
+       -old "$BASELINE.abi" -new latest.abi
+
+``abi-compliance-checker`` exits with a non-zero status when it finds an
+incompatibility.  It writes the HTML report to
+``compat_reports/libLLVM.so/<old>_to_<new>/compat_report.html``.  Clang has a
+similar workflow for ``libclang``, ``.github/workflows/libclang-abi-tests.yml``.
+
 Triaging Bug Reports for Releases
 ---------------------------------
 
@@ -333,6 +514,8 @@ This section describes how to triage bug reports:
    someone to take a look at the failures.
 
 
+.. _release-patch-rules:
+
 Release Patch Rules
 -------------------
 
@@ -361,6 +544,7 @@ Below are the rules regarding patching the release branch:
 #. *Bug fix releases* Patches should be limited to bug fixes or very safe
    and critical performance improvements.  Patches must maintain both API and
    ABI compatibility with the X.1.0 release.
+   The :ref:`LLVM ABI Tests <abi-checks>` workflow checks this for LLVM.
 
 Release Final Tasks
 -------------------

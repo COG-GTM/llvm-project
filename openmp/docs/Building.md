@@ -248,6 +248,34 @@ $ ninja
 ```
 
 
+## Test Environment Variables
+
+The lit configurations of the OpenMP and offload test suites
+(`openmp/runtime/test`, `openmp/tools/archer/tests`,
+`openmp/tools/multiplex/tests`, `openmp/libompd/test` and `offload/test`) read
+the following variables from the environment that runs `lit` (e.g.
+`ninja check-openmp`). Unset them for a clean, reproducible test run.
+
+**CHECK_OPENMP_ENV**
+: Whitespace-separated list of `NAME=VALUE` pairs that are added to the
+environment of every test in `openmp/runtime/test`,
+`openmp/tools/archer/tests`, `openmp/tools/multiplex/tests` and
+`offload/test`. Only the first `=` separates the name from the value, so values
+may themselves contain `=`, but neither names nor values may contain
+whitespace. A few variables may still be overridden by the test configuration
+afterwards (e.g. `ARCHER_OPTIONS` in `openmp/tools/archer/tests`). For example,
+to run the runtime tests with a fixed thread count and verbose affinity output:
+
+```sh
+CHECK_OPENMP_ENV="OMP_NUM_THREADS=4 KMP_AFFINITY=verbose" ninja check-openmp
+```
+
+**INTEL_LICENSE_FILE**
+: Passed through to the tests of `openmp/runtime/test`,
+`openmp/tools/archer/tests`, `openmp/tools/multiplex/tests` and
+`openmp/libompd/test`. Only needed when the test compiler is the Intel
+compiler (`icc`), which requires it to locate its license.
+
 ## CMake Configuration Parameter Reference
 
 CMake configuration parameters specific to OpenMP are prefixed with `OPENMP_`,

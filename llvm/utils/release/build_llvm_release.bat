@@ -1,6 +1,39 @@
 @echo off
 
-REM Filter out tests that are known to fail.
+REM Tests excluded from every lit run in this script (all variants, all stages).
+REM LIT_FILTER_OUT is an unanchored regex matched against lit test names, so it
+REM hides the test from the results entirely (no XFAIL/XPASS is reported).
+REM Per-architecture coverage of the release build is documented in
+REM "Windows Release Test Coverage" in llvm/docs/HowToReleaseLLVM.rst; keep
+REM that table and this list in sync. Every entry needs a reason and a tracking
+REM issue; prefer a per-test XFAIL/UNSUPPORTED marker over adding to this list.
+REM
+REM   gh110231.cpp (clang/test/Parser, check-clang)
+REM     Runs clang_cc1 100 times to catch a non-deterministic stack overflow
+REM     (llvm/llvm-project#110231). Reason for exclusion: not recorded.
+REM     Tracking issue: none recorded.
+REM   crt_initializers.cpp (compiler-rt asan TestCases/Windows, check-runtimes)
+REM     Reason for exclusion: not recorded. Tracking issue: none recorded.
+REM   use_after_return_linkage.cpp (compiler-rt asan TestCases/Windows/msvc,
+REM   check-runtimes)
+REM     Reason for exclusion: not recorded. Tracking issue: none recorded.
+REM   init-order-atexit.cpp (compiler-rt asan, check-runtimes)
+REM     Test only XFAILs on *-windows-gnu. Reason for exclusion: not recorded.
+REM     Tracking issue: none recorded.
+REM   initialization-bug.cpp, initialization-bug-no-global.cpp (compiler-rt
+REM   asan, check-runtimes)
+REM     Already XFAIL on *windows-msvc* in the test files (asan issue 186), so
+REM     filtering them also hides an unexpected pass. Reason for exclusion: not
+REM     recorded. Tracking issue: none recorded.
+REM   trace-malloc-unbalanced.test, trace-malloc-2.test (compiler-rt fuzzer,
+REM   check-runtimes)
+REM     Reason for exclusion: not recorded. Tracking issue: none recorded.
+REM   TraceMallocTest
+REM     Matches no lit test name (TraceMallocTest.cpp is an input of the two
+REM     trace-malloc tests above, and libFuzzer lit only collects *.test).
+REM
+REM check-runtimes only runs for --x64, so every entry except gh110231.cpp only
+REM affects the x64 build. check-clang does not run for --x86.
 set "LIT_FILTER_OUT=gh110231.cpp|crt_initializers.cpp|init-order-atexit.cpp|use_after_return_linkage.cpp|initialization-bug.cpp|initialization-bug-no-global.cpp|trace-malloc-unbalanced.test|trace-malloc-2.test|TraceMallocTest"
 
 setlocal enabledelayedexpansion
@@ -126,6 +159,8 @@ set build_dir=%cd%\llvm_package_%package_version%
 echo Revision: %revision%
 echo Package version: %package_version%
 echo Build dir: %build_dir%
+echo Tests excluded from all lit runs (see the top of build_llvm_release.bat):
+set LIT_FILTER_OUT
 echo.
 
 if exist %build_dir% (
@@ -252,6 +287,13 @@ set cmake_flags=^
 
 cmake -GNinja %cmake_flags% %llvm_src%\llvm || exit /b 1
 ninja || ninja || ninja || exit /b 1
+REM x86 stage0 and stage1 only run check-lld. check-llvm, check-clang,
+REM check-runtimes and check-clang-tools are disabled for the x86 variant; no
+REM reason or tracking issue is recorded for this. release-binaries.yml does
+REM not build this variant (it passes --x64 or --arm64). Re-enable these, or
+REM replace them with per-test XFAIL/UNSUPPORTED markers, once they pass, and
+REM update "Windows Release Test Coverage" in llvm/docs/HowToReleaseLLVM.rst.
+echo NOTE: x86 stage0 runs check-lld only; check-llvm, check-clang, check-runtimes and check-clang-tools are disabled.
 REM ninja check-llvm || ninja check-llvm || ninja check-llvm || exit /b 1
 REM ninja check-clang || ninja check-clang || ninja check-clang || exit /b 1
 ninja check-lld || ninja check-lld || ninja check-lld || exit /b 1
@@ -277,6 +319,8 @@ mkdir build32
 cd build32
 cmake -GNinja %cmake_flags% %llvm_src%\llvm || exit /b 1
 ninja || ninja || ninja || exit /b 1
+REM See the note on the x86 stage0 checks above.
+echo NOTE: x86 stage1 runs check-lld only; check-llvm, check-clang, check-runtimes and check-clang-tools are disabled.
 REM ninja check-llvm || ninja check-llvm || ninja check-llvm || exit /b 1
 REM ninja check-clang || ninja check-clang || ninja check-clang || exit /b 1
 ninja check-lld || ninja check-lld || ninja check-lld || exit /b 1
@@ -329,6 +373,7 @@ ninja || ninja || ninja || exit /b 1
 ninja check-llvm || ninja check-llvm || ninja check-llvm || exit /b 1
 ninja check-clang || ninja check-clang || ninja check-clang || exit /b 1
 ninja check-lld || ninja check-lld || ninja check-lld || exit /b 1
+REM check-runtimes only runs for x64 (sanitizers are not built for arm64).
 if "%arch%"=="amd64" (
   ninja check-runtimes || ninja check-runtimes || ninja check-runtimes || exit /b 1
 )
@@ -368,6 +413,13 @@ if "%arch%"=="amd64" (
 )
 ninja check-clang-tools || ninja check-clang-tools || ninja check-clang-tools || exit /b 1
 ninja check-clangd || ninja check-clangd || ninja check-clangd || exit /b 1
+REM flang, mlir and lldb are built and packaged for both x64 and arm64, but
+REM check-flang, check-mlir and check-lldb are disabled for both; no reason or
+REM tracking issue is recorded for this. check-runtimes above only runs for
+REM x64 (sanitizers are not built for arm64). Re-enable these, or replace them
+REM with per-test XFAIL/UNSUPPORTED markers, once they pass, and update
+REM "Windows Release Test Coverage" in llvm/docs/HowToReleaseLLVM.rst.
+echo NOTE: %arch% stage1 does not run check-flang, check-mlir or check-lldb.
 REM ninja check-flang || ninja check-flang || ninja check-flang || exit /b 1
 REM ninja check-mlir || ninja check-mlir || ninja check-mlir || exit /b 1
 REM ninja check-lldb || ninja check-lldb || ninja check-lldb || exit /b 1

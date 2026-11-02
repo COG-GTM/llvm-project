@@ -194,6 +194,58 @@ passed through the net. For compile-time benchmarks, use the Release version.
 
 The minimum required version of the tools you'll need are :doc:`here <GettingStarted>`
 
+Windows Release Test Coverage
+-----------------------------
+
+The Windows binaries are built by ``llvm/utils/release/build_llvm_release.bat``,
+which ``.github/workflows/release-binaries.yml`` runs with ``--x64`` or
+``--arm64`` depending on the runner. The script does a stage0 build and a
+stage1 build per variant and only packages stage1. It does not run
+``ninja check-all``. It runs the suites below, so the Windows release binaries
+are tested on a smaller set of tests than a local ``check-all``.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Variant
+     - Suites run (stage0 and stage1)
+     - Suites not run
+   * - ``--x64``
+     - check-llvm, check-clang, check-lld, check-runtimes, check-clang-tools,
+       check-clangd
+     - check-flang, check-mlir, check-lldb (stage1 builds and packages flang,
+       mlir and lldb)
+   * - ``--arm64``
+     - check-llvm, check-clang, check-lld, check-clang-tools, check-clangd
+     - check-runtimes (sanitizers are not built for arm64), check-flang,
+       check-mlir, check-lldb (stage1 builds and packages flang, mlir and lldb)
+   * - ``--x86`` (not built by ``release-binaries.yml``)
+     - check-lld
+     - check-llvm, check-clang, check-runtimes, check-clang-tools (stage1 also
+       builds and packages lldb without running check-lldb)
+
+The script also sets ``LIT_FILTER_OUT`` for every lit run, which removes these
+tests from the results:
+
+* ``clang/test/Parser/gh110231.cpp`` (check-clang)
+* ``compiler-rt/test/asan/TestCases/Windows/crt_initializers.cpp``,
+  ``compiler-rt/test/asan/TestCases/Windows/msvc/use_after_return_linkage.cpp``,
+  ``compiler-rt/test/asan/TestCases/init-order-atexit.cpp``,
+  ``compiler-rt/test/asan/TestCases/initialization-bug.cpp`` and
+  ``compiler-rt/test/asan/TestCases/initialization-bug-no-global.cpp``
+  (check-runtimes, so x64 only)
+* ``compiler-rt/test/fuzzer/trace-malloc-2.test`` and
+  ``compiler-rt/test/fuzzer/trace-malloc-unbalanced.test`` (check-runtimes,
+  so x64 only)
+
+The script does not record why the disabled suites or the filtered tests fail,
+and none of them has a tracking issue. When you reproduce a Windows release
+build, expect these suites and tests to be skipped; regressions in them are
+not caught by the Windows release build. If you change the checks or
+``LIT_FILTER_OUT`` in the script, update this section and the comments in the
+script. Each entry should have a reason and a tracking issue, and per-test
+``XFAIL``/``UNSUPPORTED`` markers are preferred over the global filter.
+
 Release Qualification Criteria
 ------------------------------
 

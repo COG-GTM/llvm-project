@@ -83,6 +83,103 @@ building source that is part of the LLVM shared library (e.g. source under
 symbol from a different LLVM project (such as Clang) it would always resolve to
 ``__declspec(dllimport)`` and the symbol would not be properly exported.
 
+Checking Annotations with ids
+-----------------------------
+Missing annotations can be found with ``idt`` (Interface Diff Tool) from the
+external `ids <https://github.com/compnerd/ids>`__ project. ``idt`` is a
+Clang-based tool that reports public declarations lacking an export annotation
+and can insert the annotation itself.
+
+`llvm/utils/git/ids-check-helper.py
+<https://github.com/llvm/llvm-project/blob/main/llvm/utils/git/ids-check-helper.py>`__
+runs ``idt`` on changed headers, using ``LLVM_ABI`` for
+``llvm/include/llvm``, ``LLVM_C_ABI`` for ``llvm/include/llvm-c`` and
+``DEMANGLE_ABI`` for ``llvm/include/llvm/Demangle``. It applies the fixes in
+place, prints the resulting ``git diff`` and exits with an error if anything
+changed.
+
+.. note::
+
+   The "Check LLVM ABI annotations" GitHub workflow
+   (``.github/workflows/ids-check.yml``) is currently only run on manual
+   dispatch, not on pull requests (see
+   `#109483 <https://github.com/llvm/llvm-project/issues/109483>`__). Nothing
+   reports missing annotations before a change is merged, so run the check
+   locally when adding or changing declarations in public headers.
+
+The steps below follow the workflow.
+
+Building idt
+~~~~~~~~~~~~
+``idt`` is not part of the LLVM tree. It is built from the ``compnerd/ids``
+repository at the commit pinned in ``.github/workflows/ids-check.yml``,
+against the LLVM and Clang 19 development packages (on Debian and Ubuntu:
+``clang-19``, ``llvm-19-dev``, ``llvm-19-tools`` and ``libclang-19-dev``;
+``lit`` is available from PyPI). ``FileCheck`` and ``lit`` are only used by the
+``ids`` test suite.
+
+.. code-block:: console
+
+   $ git clone https://github.com/compnerd/ids.git
+   $ git -C ids checkout b3bf35dd13d7ff244a6a6d106fe58d0eedb5743e
+   $ cmake -G Ninja -S ids -B ids/build \
+       -DCMAKE_BUILD_TYPE=Release \
+       -DCMAKE_C_COMPILER=clang-19 \
+       -DCMAKE_CXX_COMPILER=clang++-19 \
+       -DLLVM_DIR=/usr/lib/llvm-19/lib/cmake/llvm \
+       -DClang_DIR=/usr/lib/llvm-19/lib/cmake/clang \
+       -DFILECHECK_EXECUTABLE=$(which FileCheck-19) \
+       -DLIT_EXECUTABLE=$(which lit)
+   $ ninja -C ids/build
+   $ export IDT_PATH=$PWD/ids/build/bin/idt
+
+Generating compile_commands.json
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``idt`` needs the compile flags of the LLVM sources, which CMake writes to
+``compile_commands.json`` in the build directory at configure time when
+``CMAKE_EXPORT_COMPILE_COMMANDS`` is enabled. Run this from the root of the
+``llvm-project`` checkout; no build is needed:
+
+.. code-block:: console
+
+   $ cmake -G Ninja -S llvm -B build \
+       -DCMAKE_BUILD_TYPE=Release \
+       -DLLVM_ENABLE_PROJECTS=clang \
+       -DLLVM_TARGETS_TO_BUILD=host \
+       -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+   $ export COMPILE_COMMANDS_PATH=$PWD/build/compile_commands.json
+
+Headers that include TableGen-generated files (``*.inc``) can only be parsed
+once those files exist. If ``idt`` reports a missing ``.inc`` file, build the
+TableGen targets first; ``ninja -C build -t targets all | grep "CommonTableGen:
+phony$"`` lists them.
+
+Running the Check
+~~~~~~~~~~~~~~~~~
+From the root of the ``llvm-project`` checkout, with no uncommitted changes to
+the headers being checked (``idt`` edits them in place and the check reports
+the resulting ``git diff``), check the headers changed on the current branch:
+
+.. code-block:: console
+
+   $ python3 llvm/utils/git/ids-check-helper.py \
+       --start-rev $(git merge-base origin/main HEAD) --end-rev HEAD
+
+``--idt-path`` and ``--compile-commands`` can be used instead of the
+``IDT_PATH`` and ``COMPILE_COMMANDS_PATH`` environment variables. Review the
+annotations ``idt`` added, and keep or adjust them as described in
+`How to Annotate Symbols`_.
+
+The script can also be installed as a pre-commit hook, which checks the staged
+files using ``IDT_PATH`` and ``COMPILE_COMMANDS_PATH`` (if either is unset the
+hook prints a warning and does not block the commit). It refuses to check
+headers that are only partially staged; stage the rest or use
+``git stash --keep-index`` first:
+
+.. code-block:: console
+
+   $ ln -s $(pwd)/llvm/utils/git/ids-check-helper.py .git/hooks/pre-commit
+
 How to Annotate Symbols
 -----------------------
 Functions

@@ -11,22 +11,47 @@ import sys
 from typing import List, Optional
 
 """
-This script is run by GitHub actions to ensure that the code in PRs properly
-labels LLVM APIs with `LLVM_ABI` so as not to break the LLVM DLL build. It can
-also be installed as a pre-commit git hook to check ABI annotations before
-submitting. The canonical source of this script is in the LLVM source tree
-under llvm/utils/git.
+This script checks that the code in PRs properly labels LLVM APIs with
+`LLVM_ABI` so as not to break the LLVM DLL build. It can also be installed as a
+pre-commit git hook to check ABI annotations before submitting. The canonical
+source of this script is in the LLVM source tree under llvm/utils/git.
 
 This script uses the idt (Interface Diff Tool) to check for missing LLVM_ABI,
-LLVM_C_ABI, and DEMANGLE_ABI annotations in header files.
+LLVM_C_ABI, and DEMANGLE_ABI annotations in header files. idt rewrites the
+changed headers in place and the resulting `git diff` is reported, so run it
+from the root of a checkout with no unrelated unstaged changes.
+
+The "Check LLVM ABI annotations" workflow (.github/workflows/ids-check.yml) is
+currently not run on pull requests, only on manual dispatch, so missing
+annotations are only caught before merge if you run this script locally.
+
+Prerequisites (see "Checking Annotations with ids" in
+llvm/docs/InterfaceExportAnnotations.rst for the full recipe):
+
+* idt is not part of LLVM. Build it from https://github.com/compnerd/ids at
+  the ref pinned in .github/workflows/ids-check.yml, against the LLVM/Clang 19
+  development packages (e.g. clang-19, llvm-19-dev and libclang-19-dev). The
+  binary ends up in <ids build dir>/bin/idt.
+* A compile_commands.json for LLVM, written at configure time by passing
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON to CMake (e.g.
+  `cmake -G Ninja -S llvm -B build -DLLVM_ENABLE_PROJECTS=clang
+  -DLLVM_TARGETS_TO_BUILD=host -DCMAKE_EXPORT_COMPILE_COMMANDS=ON`).
+
+Point the script at them with --idt-path/--compile-commands or with the
+$IDT_PATH and $COMPILE_COMMANDS_PATH environment variables, then check the
+changes on your branch:
+
+python3 llvm/utils/git/ids-check-helper.py \\
+    --start-rev $(git merge-base origin/main HEAD) --end-rev HEAD
 
 You can install this script as a git hook by symlinking it to the .git/hooks
 directory:
 
 ln -s $(pwd)/llvm/utils/git/ids-check-helper.py .git/hooks/pre-commit
 
-You can control the exact path to idt and compile_commands.json with the
-following environment variables: $IDT_PATH and $COMPILE_COMMANDS_PATH.
+As a hook it checks the staged files and reads idt and compile_commands.json
+from $IDT_PATH and $COMPILE_COMMANDS_PATH; if they are not set it prints a
+warning and lets the commit through. Set $IDS_HOOK_VERBOSE=1 for verbose output.
 """
 
 
@@ -53,6 +78,9 @@ class IdsCheckArgs:
         self.verbose = getattr(args, "verbose", True)
 
 
+DOCS_URL = "https://llvm.org/docs/InterfaceExportAnnotations.html#checking-annotations-with-ids"
+
+
 class IdsChecker:
     """
     Checker for LLVM ABI annotations using the idt tool.
@@ -73,8 +101,11 @@ class IdsChecker:
     @property
     def instructions(self) -> str:
         # Provide basic usage instructions
-        return f"""git diff origin/main HEAD -- 'llvm/include/llvm/**/*.h' 'llvm/include/llvm-c/**/*.h' 'llvm/include/llvm/Demangle/**/*.h'
-Then run idt on the changed files with appropriate --export-macro and --include-header flags."""
+        return f"""# Build idt and generate compile_commands.json as described in
+# {DOCS_URL}
+IDT_PATH=/path/to/ids/build/bin/idt \\
+COMPILE_COMMANDS_PATH=/path/to/llvm-build/compile_commands.json \\
+python3 llvm/utils/git/ids-check-helper.py --start-rev origin/main --end-rev HEAD"""
 
     def pr_comment_text_for_diff(self, diff: str) -> str:
         return f"""
@@ -196,9 +227,15 @@ View the diff from {self.name} here.
         idt_path: str,
         compile_commands: str,
     ) -> bool:
-        """Run idt tool on the given files with category-specific configuration."""
+        """Run idt tool on the given files with category-specific configuration.
+
+        Returns False if idt failed on any file, in which case that file was not
+        (fully) checked.
+        """
         if not files:
             return True
+
+        success = True
 
         if args.verbose:
             print(
@@ -223,9 +260,11 @@ View the diff from {self.name} here.
             if args.verbose:
                 print(f"Running: {' '.join(cmd)}", file=sys.stderr)
 
-            subprocess.run(cmd)
+            if subprocess.run(cmd).returncode != 0:
+                print(f"Error: idt failed on {file}", file=sys.stderr)
+                success = False
 
-        return True
+        return success
 
     def get_changed_files(self, args: IdsCheckArgs) -> List[str]:
         """Get list of changed files between revisions."""
@@ -245,9 +284,9 @@ View the diff from {self.name} here.
         files = proc.stdout.decode("utf-8").strip().split("\n")
         return [f for f in files if f]
 
-    def check_for_diff(self) -> Optional[str]:
-        """Check if there are any uncommitted changes after running idt."""
-        cmd = ["git", "diff"]
+    def check_for_diff(self, files: List[str]) -> Optional[str]:
+        """Check if idt left any uncommitted changes in the given files."""
+        cmd = ["git", "diff", "--"] + files
         proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         diff = proc.stdout.decode("utf-8")
@@ -264,10 +303,12 @@ View the diff from {self.name} here.
                 "Error: idt path not specified. Use --idt-path argument or set IDT_PATH environment variable",
                 file=sys.stderr,
             )
+            print(f"See {DOCS_URL} for how to build idt.", file=sys.stderr)
             return 1
 
         if not os.path.exists(idt_path):
             print(f"Error: idt tool not found at {idt_path}", file=sys.stderr)
+            print(f"See {DOCS_URL} for how to build idt.", file=sys.stderr)
             return 1
 
         # Resolve compile_commands path: prefer command line arg, then env var
@@ -279,11 +320,19 @@ View the diff from {self.name} here.
                 "Error: compile_commands.json path not specified. Use --compile-commands argument or set COMPILE_COMMANDS_PATH environment variable",
                 file=sys.stderr,
             )
+            print(
+                f"See {DOCS_URL} for how to generate compile_commands.json.",
+                file=sys.stderr,
+            )
             return 1
 
         if not os.path.exists(compile_commands):
             print(
                 f"Error: compile_commands.json not found at {compile_commands}",
+                file=sys.stderr,
+            )
+            print(
+                f"See {DOCS_URL} for how to generate compile_commands.json.",
                 file=sys.stderr,
             )
             return 1
@@ -296,17 +345,18 @@ View the diff from {self.name} here.
             return 0
 
         # Process each category
-        any_processed = False
+        checked_files = []
+        idt_failed = False
         for category in self.FILE_CATEGORIES:
             filtered_files = self.filter_files_for_category(changed_files, category)
             if filtered_files:
-                any_processed = True
+                checked_files.extend(filtered_files)
                 if not self.run_idt_on_files(
                     filtered_files, category, args, idt_path, compile_commands
                 ):
-                    return 1
+                    idt_failed = True
 
-        if not any_processed:
+        if not checked_files:
             if args.verbose:
                 print(
                     "No relevant header files changed, skipping ids check",
@@ -315,8 +365,19 @@ View the diff from {self.name} here.
             return 0
 
         # Check for differences
-        diff = self.check_for_diff()
+        diff = self.check_for_diff(checked_files)
         should_update_gh = args.token is not None and args.repo is not None
+
+        if idt_failed:
+            if diff:
+                print(diff)
+            print(
+                "\nError: idt failed, so LLVM_ABI annotations were not fully "
+                "checked. Make sure the TableGen targets for the headers are built "
+                f"and that {compile_commands} is up to date. See {DOCS_URL}",
+                file=sys.stderr,
+            )
+            return 1
 
         if diff:
             if should_update_gh:
@@ -344,7 +405,65 @@ View the diff from {self.name} here.
             return 0
 
 
+def hook_main() -> int:
+    if not os.environ.get("IDT_PATH") or not os.environ.get("COMPILE_COMMANDS_PATH"):
+        print(
+            "Warning: IDT_PATH and COMPILE_COMMANDS_PATH must be set to check "
+            f"LLVM_ABI annotations, skipping ids check. See {DOCS_URL}",
+            file=sys.stderr,
+        )
+        return 0
+
+    cmd = ["git", "diff", "--cached", "--name-only", "--diff-filter=d"]
+    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    changed_files = [f for f in proc.stdout.decode("utf-8").splitlines() if f]
+    if not changed_files:
+        return 0
+
+    # idt checks and edits the working tree copy, so it must match what is being
+    # committed.
+    checker = IdsChecker()
+    headers = [
+        f
+        for category in checker.FILE_CATEGORIES
+        for f in checker.filter_files_for_category(changed_files, category)
+    ]
+    if headers:
+        proc = subprocess.run(
+            ["git", "diff", "--name-only", "--"] + headers,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        partially_staged = proc.stdout.decode("utf-8").split()
+        if partially_staged:
+            print(
+                "Error: these headers have unstaged changes, so the ids check "
+                "cannot check what is being committed. Stage or stash them "
+                "(e.g. git stash --keep-index) first:\n  "
+                + "\n  ".join(partially_staged),
+                file=sys.stderr,
+            )
+            return 1
+
+    args = IdsCheckArgs(
+        argparse.Namespace(
+            start_rev=None,
+            end_rev=None,
+            changed_files=changed_files,
+            idt_path=None,
+            compile_commands=None,
+            token=None,
+            repo=None,
+            verbose=bool(os.environ.get("IDS_HOOK_VERBOSE")),
+        )
+    )
+    return checker.run(args)
+
+
 if __name__ == "__main__":
+    if ".git/hooks" in os.path.abspath(__file__):
+        sys.exit(hook_main())
+
     parser = argparse.ArgumentParser(
         description="Check LLVM ABI annotations in header files"
     )

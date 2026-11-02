@@ -414,7 +414,7 @@ build and dump both sides yourself.  Expect a ``Debug`` build of
 
      $ llvm/utils/release/get-llvm-version.sh
      21.1.3
-     $ BASELINE=llvmorg-21.1.0 BASELINE_MAJOR=21 MAJOR=21 ABI_HEADERS=.
+     $ export BASELINE=llvmorg-21.1.0 BASELINE_MAJOR=21 MAJOR=21 ABI_HEADERS=.
 
    For a branch at ``X.1.0``, use ``BASELINE=llvmorg-<X-1>.1.0``,
    ``BASELINE_MAJOR=<X-1>``, ``MAJOR=X`` and ``ABI_HEADERS=llvm-c``.

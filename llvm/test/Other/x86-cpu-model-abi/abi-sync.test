@@ -1,0 +1,43 @@
+## Check that the X86 vendor/type/subtype/feature enums that compiler-rt uses
+## to fill __cpu_model/__cpu_features2 agree with X86TargetParser.def, from
+## which clang takes the indices and bit positions it emits for
+## __builtin_cpu_is, __builtin_cpu_supports and function multiversioning.
+##
+## If this fails after editing X86TargetParser.def or
+## compiler-rt/lib/builtins/cpu_model/x86.c, update the other file so that
+## every entry has the same value on both sides.
+
+# RUN: %python %llvm_src_root/utils/check_x86_cpu_model_abi.py \
+# RUN:   --def %llvm_src_root/include/llvm/TargetParser/X86TargetParser.def \
+# RUN:   --x86-c %llvm_src_root/../compiler-rt/lib/builtins/cpu_model/x86.c \
+# RUN:   | FileCheck %s --check-prefix=TREE
+# TREE: OK: {{[0-9]+}} vendors, {{[0-9]+}} CPU types, {{[0-9]+}} CPU subtypes, {{[0-9]+}} features match
+
+## The checker itself: matching inputs (incl. the LAHF_LM/SAHF and LM/64BIT
+## name aliases, comments, gaps and entries spanning lines) pass.
+# RUN: %python %llvm_src_root/utils/check_x86_cpu_model_abi.py \
+# RUN:   --def %S/Inputs/good.def --x86-c %S/Inputs/good.c \
+# RUN:   | FileCheck %s --check-prefix=GOOD
+# GOOD: OK: 2 vendors, 2 CPU types, 2 CPU subtypes, 6 features match
+
+## Every kind of drift is reported.
+# RUN: not %python %llvm_src_root/utils/check_x86_cpu_model_abi.py \
+# RUN:   --def %S/Inputs/drift.def --x86-c %S/Inputs/drift.c 2>&1 \
+# RUN:   | FileCheck %s --check-prefix=DRIFT
+# DRIFT:      error: vendor VENDOR_HYGON = 3 is in X86TargetParser.def but missing from compiler-rt enum ProcessorVendors
+# DRIFT-NEXT: error: vendor VENDOR_OTHER: X86TargetParser.def value 4 != compiler-rt value 3
+# DRIFT-NEXT: error: CPU type INTEL_BONNELL: X86TargetParser.def value 1 != compiler-rt value 2
+# DRIFT-NEXT: error: CPU type INTEL_CORE2: X86TargetParser.def value 2 != compiler-rt value 1
+# DRIFT-NEXT: error: CPU type CPU_TYPE_MAX: X86TargetParser.def value 3 != compiler-rt value 4
+# DRIFT-NEXT: error: CPU type ZHAOXIN_FAM7H = 3 is in compiler-rt enum ProcessorTypes but missing from X86TargetParser.def
+# DRIFT-NEXT: error: CPU subtype INTEL_COREI7_NEWLAKE = 2 is in X86TargetParser.def but missing from compiler-rt enum ProcessorSubtypes
+# DRIFT-NEXT: error: CPU subtype INTEL_COREI7_WESTMERE: X86TargetParser.def value 3 != compiler-rt value 2
+# DRIFT-NEXT: error: CPU subtype CPU_SUBTYPE_MAX: X86TargetParser.def value 4 != compiler-rt value 3
+# DRIFT-NEXT: error: feature SSE: ABI_VALUE 2 already used by MMX in X86TargetParser.def
+# DRIFT-NEXT: error: feature NEWF: ABI_VALUE 130 does not fit in the 128 bits of __cpu_features/__cpu_features2
+# DRIFT-NEXT: error: feature MMX: X86TargetParser.def ABI_VALUE 2 != compiler-rt FEATURE_MMX = 1
+# DRIFT-NEXT: error: feature NEWF2 (ABI_VALUE 124) is in X86TargetParser.def but missing from compiler-rt enum ProcessorFeatures
+# DRIFT-NEXT: error: feature NEWF (ABI_VALUE 130) is in X86TargetParser.def but missing from compiler-rt enum ProcessorFeatures
+# DRIFT-NEXT: error: feature FEATURE_ADX = 55 is in compiler-rt enum ProcessorFeatures but has no X86_FEATURE_COMPAT/X86_MICROARCH_LEVEL entry in X86TargetParser.def
+# DRIFT-NEXT: error: compiler-rt CPU_FEATURE_MAX = 56 must be greater than the largest X86TargetParser.def ABI_VALUE 130
+# DRIFT-NEXT: error: compiler-rt/lib/builtins/cpu_model/x86.c and X86TargetParser.def are out of sync (16 problem(s))

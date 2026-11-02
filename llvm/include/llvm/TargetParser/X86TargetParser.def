@@ -128,6 +128,11 @@ X86_CPU_SUBTYPE_ALIAS(INTEL_COREI7_PANTHERLAKE, "wildcatlake")
 
 // Order of bits has to match what's implemented in compiler-rt/libgcc. That's what the
 // ABI_VALUE is for - CodeGenFunction::GetX86CpuSupportsMask uses it.
+// X86_VENDOR, X86_CPU_TYPE and X86_CPU_SUBTYPE values are their 1-based
+// position, so new entries must be appended. The test
+// llvm/test/Other/x86-cpu-model-abi (llvm/utils/check_x86_cpu_model_abi.py)
+// fails if the enums in compiler-rt/lib/builtins/cpu_model/x86.c don't match
+// this file.
 #ifndef X86_FEATURE_COMPAT
 #define X86_FEATURE_COMPAT(ENUM, STR, PRIORITY, ABI_VALUE) X86_FEATURE(ENUM, STR)
 #endif

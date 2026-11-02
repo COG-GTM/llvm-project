@@ -38,6 +38,13 @@ enum VendorSignatures {
   SIG_AMD = 0x68747541,   // Auth
 };
 
+// The values of ProcessorVendors, ProcessorTypes, ProcessorSubtypes and
+// ProcessorFeatures are ABI: clang emits them for __builtin_cpu_is,
+// __builtin_cpu_supports and function multiversioning based on
+// llvm/include/llvm/TargetParser/X86TargetParser.def (libgcc uses the same
+// values). Update both files together; llvm/utils/check_x86_cpu_model_abi.py
+// (run by llvm/test/Other/x86-cpu-model-abi and
+// compiler-rt/test/builtins/Unit/cpu_model) reports any mismatch.
 enum ProcessorVendors {
   VENDOR_INTEL = 1,
   VENDOR_AMD,

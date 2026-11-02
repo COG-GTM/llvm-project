@@ -91,6 +91,38 @@ a new corresponding ``BUILD.gn`` file below ``llvm/utils/gn/secondary/``.
 If the dependencies in a ``CMakeLists.txt`` file have been changed, you have to
 manually analyze and fix.
 
+Syncing configure_file() templates
+----------------------------------
+
+CMake generates some files with ``configure_file()`` from templates such as
+``llvm/include/llvm/Config/config.h.cmake``, ``libcxx/include/__config_site.in``
+and the ``lit.site.cfg.py.in`` files. The GN build generates the same files at
+build time with ``write_cmake_config()``. Each call lists every ``KEY=VALUE``
+the template uses in its ``values`` list, and that list is maintained by hand.
+``llvm/utils/gn/build/write_cmake_config.py`` requires the two to match exactly.
+
+So if a template gains a ``#cmakedefine FOO``, ``#cmakedefine01 FOO``,
+``@FOO@`` or ``${FOO}``, add ``"FOO=..."`` to the ``values`` of the matching
+``write_cmake_config()`` call (or of the wrapping template, such as
+``write_lit_config``) in the ``BUILD.gn`` file below
+``llvm/utils/gn/secondary/``. An empty value (``"FOO="``) makes ``#cmakedefine``
+and ``#cmakedefine01`` evaluate to false. ``"FOO=0"`` is truthy and is rejected
+for ``#cmakedefine01``. If a template drops a key, remove it from ``values``.
+
+The build reports drift like this:
+
+- ``error: <template> references keys missing from 'values' in <target>``:
+  the template gained a key. Add it to the ``values`` list of ``<target>``.
+- ``unused values args:``: the template no longer uses these keys. Remove them
+  from ``values``.
+
+Run ``llvm/utils/gn/build/check_cmake_config_values.py`` to get a report
+before building. It compares the keys of each template with the keys in the
+corresponding ``values`` list. ``sync_source_lists_from_cmake.py`` runs it as
+well. The check is static: it counts a key as passed if any ``if`` branch sets
+it, and it skips calls whose ``input`` is computed (``-v`` lists them). The
+build is still the final check.
+
 .. _Philosophy:
 
 Philosophy

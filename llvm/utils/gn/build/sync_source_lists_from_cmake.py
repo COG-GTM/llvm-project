@@ -7,7 +7,9 @@ it is identical to the list of cpp files in the corresponding CMakeLists.txt
 file, and prints the difference if not.
 
 Also checks that each CMakeLists.txt file below unittests/ folders that define
-binaries have corresponding BUILD.gn files.
+binaries have corresponding BUILD.gn files, and runs
+check_cmake_config_values.py to report write_cmake_config() `values` lists
+that no longer match their configure_file() templates (never auto-fixed).
 
 If --write is passed, tries to write modified .gn files and adds one git
 commit for each cmake commit this merges. If an error is reported, the state
@@ -19,6 +21,8 @@ import os
 import re
 import subprocess
 import sys
+
+import check_cmake_config_values
 
 
 def patch_gn_file(gn_file, add, remove):
@@ -179,7 +183,8 @@ def sync_unittests():
 def main():
     src = sync_source_lists(len(sys.argv) > 1 and sys.argv[1] == "--write")
     tests = sync_unittests()
-    if src or tests:
+    cmake_config = check_cmake_config_values.check()
+    if src or tests or cmake_config:
         sys.exit(1)
 
 

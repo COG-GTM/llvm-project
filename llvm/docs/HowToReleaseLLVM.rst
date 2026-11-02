@@ -378,6 +378,12 @@ fixes, new known issues, and changes in the list of supported platforms.
 The :doc:`GettingStarted` page should be updated to reflect the new release
 version number tag and changes in basic system requirements.
 
+Once ``X.1.0`` is published, update the Clang C++ defect report status page on
+``main``: set ``latest_release`` in ``clang/www/make_cxx_dr_status`` to ``X``,
+run the script to regenerate ``clang/www/cxx_dr_status.html``, and commit both
+files. Otherwise defect reports implemented in Clang ``X`` keep being shown as
+unreleased. See ``clang/test/CXX/drs/README.md`` for details.
+
 .. _tag:
 
 Tag the LLVM Final Release

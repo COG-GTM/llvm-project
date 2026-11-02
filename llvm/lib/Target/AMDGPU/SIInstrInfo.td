@@ -10,7 +10,7 @@ class AMDGPUMnemonicAlias<string From, string To, string VariantName = "">
     : MnemonicAlias<From, To, VariantName>, PredicateControl;
 
 // Except for the NONE field, this must be kept in sync with the
-// SIEncodingFamily enum in SIInstrInfo.cpp and the columns of the
+// SIEncodingFamily enum in SIDefines.h and the columns of the
 // getMCOpcodeGen table.
 def SIEncodingFamily {
   int NONE = -1;

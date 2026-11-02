@@ -827,6 +827,24 @@ unsigned mapWMMA3AddrTo2AddrOpcode(unsigned Opc) {
   return Info ? Info->Opcode2Addr : ~0u;
 }
 
+// The cast below requires getMCOpcodeGen's ValueCols to be listed in
+// SIEncodingFamily order.
+static_assert(unsigned(Subtarget_0) == SIEncodingFamily::SI);
+static_assert(unsigned(Subtarget_1) == SIEncodingFamily::VI);
+static_assert(unsigned(Subtarget_2) == SIEncodingFamily::SDWA);
+static_assert(unsigned(Subtarget_3) == SIEncodingFamily::SDWA9);
+static_assert(unsigned(Subtarget_4) == SIEncodingFamily::GFX80);
+static_assert(unsigned(Subtarget_5) == SIEncodingFamily::GFX9);
+static_assert(unsigned(Subtarget_6) == SIEncodingFamily::GFX10);
+static_assert(unsigned(Subtarget_7) == SIEncodingFamily::SDWA10);
+static_assert(unsigned(Subtarget_8) == SIEncodingFamily::GFX90A);
+static_assert(unsigned(Subtarget_9) == SIEncodingFamily::GFX940);
+static_assert(unsigned(Subtarget_10) == SIEncodingFamily::GFX11);
+static_assert(unsigned(Subtarget_11) == SIEncodingFamily::GFX1170);
+static_assert(unsigned(Subtarget_12) == SIEncodingFamily::GFX12);
+static_assert(unsigned(Subtarget_13) == SIEncodingFamily::GFX1250);
+static_assert(unsigned(Subtarget_14) == SIEncodingFamily::GFX13);
+
 // Wrapper for Tablegen'd function.  enum Subtarget is not defined in any
 // header files, so we need to wrap it in a function that takes unsigned
 // instead.

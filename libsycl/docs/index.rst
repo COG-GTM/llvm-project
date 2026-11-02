@@ -109,11 +109,12 @@ It is not part of ``check-all``. The premerge ``Test SYCL`` check
 Notes:
 
 * ``offload`` and ``openmp`` must be enabled together with ``libsycl``.
-* ``LLVM_INCLUDE_SPIRV_TOOLS_TESTS`` is an advanced option. It clones and
-  builds SPIRV-Tools from GitHub during the build, so the first build needs
-  network access. Existing ``spirv-as``, ``spirv-dis``, ``spirv-val`` and
-  ``spirv-link`` binaries can be used instead by passing ``SPIRV_AS``,
-  ``SPIRV_DIS``, ``SPIRV_VAL`` and ``SPIRV_LINK``.
+* ``LLVM_INCLUDE_SPIRV_TOOLS_TESTS`` is an advanced option. It adds a
+  ``SPIRVTools`` target that clones and builds SPIRV-Tools from GitHub for the
+  LLVM/Clang SPIR-V tests; ``check-sycl`` itself does not build it. Existing
+  ``spirv-as``, ``spirv-dis``, ``spirv-val`` and ``spirv-link`` binaries can be
+  used instead of cloning by passing ``SPIRV_AS``, ``SPIRV_DIS``,
+  ``SPIRV_VAL`` and ``SPIRV_LINK``.
 * CI runs in the ``ghcr.io/llvm/ci-ubuntu-24.04:latest`` container with
   sccache as ``CMAKE_C_COMPILER_LAUNCHER``/``CMAKE_CXX_COMPILER_LAUNCHER``.
   Use the same image to reproduce a CI failure locally:

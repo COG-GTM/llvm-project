@@ -46,10 +46,12 @@ ninja -C build check-sycl
 
 `check-sycl` builds Clang, the runtimes and the libsycl tests, and then runs the
 tests with `llvm-lit`. `LLVM_INCLUDE_SPIRV_TOOLS_TESTS` is an advanced option
-that clones and builds SPIRV-Tools (`spirv-as`, `spirv-dis`, `spirv-val`,
-`spirv-link`) from GitHub, so the first build needs network access. To use
-existing binaries instead, pass their paths with `-DSPIRV_AS=...`,
-`-DSPIRV_DIS=...`, `-DSPIRV_VAL=...` and `-DSPIRV_LINK=...`.
+that adds a `SPIRVTools` target which clones and builds SPIRV-Tools
+(`spirv-as`, `spirv-dis`, `spirv-val`, `spirv-link`) from GitHub for the
+LLVM/Clang SPIR-V tests. `check-sycl` itself does not build it, so it is only
+needed to match the CI configuration exactly. To use existing binaries instead
+of cloning, pass their paths with `-DSPIRV_AS=...`, `-DSPIRV_DIS=...`,
+`-DSPIRV_VAL=...` and `-DSPIRV_LINK=...`.
 
 CI runs this inside the `ghcr.io/llvm/ci-ubuntu-24.04:latest` container (with
 sccache as the compiler launcher). To reproduce a CI failure in the same

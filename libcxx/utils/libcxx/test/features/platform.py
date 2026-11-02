@@ -78,6 +78,9 @@ features = [
         name=lambda cfg: "android-device-api={}".format(_getAndroidDeviceApi(cfg)),
         when=lambda cfg: "__ANDROID__" in compilerMacros(cfg),
     ),
+    # Marks known Android failures; it is set for every Android target. Each use
+    # should say why, and narrow the condition with android-device-api= when the
+    # failure only affects some API levels.
     Feature(
         name="LIBCXX-ANDROID-FIXME",
         when=lambda cfg: "__ANDROID__" in compilerMacros(cfg),

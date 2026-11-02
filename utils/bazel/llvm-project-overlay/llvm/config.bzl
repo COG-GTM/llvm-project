@@ -98,16 +98,23 @@ builtin_thread_pointer = select({
     "//conditions:default": [],
 })
 
+# Maps each supported host config_setting to (LLVM_NATIVE_ARCH, host triple).
+# Also used to fill in lit.site.cfg.py templates.
 # TODO: We should split out host vs. target here.
+native_arch_and_triple = {
+    "@bazel_tools//src/conditions:windows": ("X86", "x86_64-pc-win32"),
+    "@bazel_tools//src/conditions:darwin_arm64": ("AArch64", "arm64-apple-darwin"),
+    "@bazel_tools//src/conditions:darwin_x86_64": ("X86", "x86_64-unknown-darwin"),
+    "@bazel_tools//src/conditions:linux_aarch64": ("AArch64", "aarch64-unknown-linux-gnu"),
+    "@bazel_tools//src/conditions:linux_ppc64le": ("PowerPC", "powerpc64le-unknown-linux-gnu"),
+    "@bazel_tools//src/conditions:linux_riscv64": ("RISCV", "riscv64-unknown-linux-gnu"),
+    "@bazel_tools//src/conditions:linux_s390x": ("SystemZ", "systemz-unknown-linux_gnu"),
+    "//conditions:default": ("X86", "x86_64-unknown-linux-gnu"),
+}
+
 llvm_config_defines = os_defines + builtin_thread_pointer + select({
-    "@bazel_tools//src/conditions:windows": native_arch_defines("X86", "x86_64-pc-win32"),
-    "@bazel_tools//src/conditions:darwin_arm64": native_arch_defines("AArch64", "arm64-apple-darwin"),
-    "@bazel_tools//src/conditions:darwin_x86_64": native_arch_defines("X86", "x86_64-unknown-darwin"),
-    "@bazel_tools//src/conditions:linux_aarch64": native_arch_defines("AArch64", "aarch64-unknown-linux-gnu"),
-    "@bazel_tools//src/conditions:linux_ppc64le": native_arch_defines("PowerPC", "powerpc64le-unknown-linux-gnu"),
-    "@bazel_tools//src/conditions:linux_riscv64": native_arch_defines("RISCV", "riscv64-unknown-linux-gnu"),
-    "@bazel_tools//src/conditions:linux_s390x": native_arch_defines("SystemZ", "systemz-unknown-linux_gnu"),
-    "//conditions:default": native_arch_defines("X86", "x86_64-unknown-linux-gnu"),
+    condition: native_arch_defines(*arch_and_triple)
+    for condition, arch_and_triple in native_arch_and_triple.items()
 }) + [
     "LLVM_VERSION_MAJOR={}".format(LLVM_VERSION_MAJOR),
     "LLVM_VERSION_MINOR={}".format(LLVM_VERSION_MINOR),

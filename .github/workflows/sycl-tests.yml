@@ -33,6 +33,8 @@ jobs:
           key: sycl-ubuntu-24.04
           variant: sccache
       - name: Build and Test
+        # Keep in sync with the build instructions in libsycl/README.md and
+        # libsycl/docs/index.rst.
         run: |
           cmake -GNinja \
             -S llvm \

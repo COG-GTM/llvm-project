@@ -73,17 +73,62 @@ To build LLVM with libsycl runtime enabled the following script can be used.
   mkdir -p $build_llvm
   mkdir -p $installprefix
 
+  # LIBOMPTARGET_PLUGINS_TO_BUILD: build the liboffload level_zero plugin,
+  # which requires Level Zero to be installed, see
+  # offload/cmake/Modules/LibomptargetGetDependencies.cmake
   cmake -G Ninja -S $llvm/llvm -B $build_llvm \
         -DLLVM_ENABLE_PROJECTS="clang" \
         -DLLVM_INSTALL_UTILS=ON \
         -DCMAKE_INSTALL_PREFIX=$installprefix \
         -DLLVM_ENABLE_RUNTIMES="offload;openmp;libsycl" \
         -DCMAKE_BUILD_TYPE=Release \
-        # must be default and configured in liboffload,
-        # requires level zero, see offload/cmake/Modules/LibomptargetGetDependencies.cmake
         -DLIBOMPTARGET_PLUGINS_TO_BUILD=level_zero
 
   ninja -C $build_llvm install
+
+Running the tests
+=================
+
+The libsycl tests are a lit test suite exposed as the ``check-sycl`` target.
+It is not part of ``check-all``. The premerge ``Test SYCL`` check
+(``.github/workflows/sycl-tests.yml``) runs on pull requests that touch
+``libsycl/**`` and uses the following configuration:
+
+.. code-block:: console
+
+  cmake -G Ninja -S llvm -B build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DLLVM_ENABLE_ASSERTIONS=ON \
+        -DLLVM_ENABLE_PROJECTS=clang \
+        -DLLVM_ENABLE_RUNTIMES="offload;openmp;libsycl" \
+        -DLLVM_TARGETS_TO_BUILD="host;SPIRV" \
+        -DLLVM_INCLUDE_SPIRV_TOOLS_TESTS=ON
+
+  ninja -C build check-sycl
+
+Notes:
+
+* ``offload`` and ``openmp`` must be enabled together with ``libsycl``.
+* ``LLVM_INCLUDE_SPIRV_TOOLS_TESTS`` is an advanced option. It clones and
+  builds SPIRV-Tools from GitHub during the build, so the first build needs
+  network access. Existing ``spirv-as``, ``spirv-dis``, ``spirv-val`` and
+  ``spirv-link`` binaries can be used instead by passing ``SPIRV_AS``,
+  ``SPIRV_DIS``, ``SPIRV_VAL`` and ``SPIRV_LINK``.
+* CI runs in the ``ghcr.io/llvm/ci-ubuntu-24.04:latest`` container with
+  sccache as ``CMAKE_C_COMPILER_LAUNCHER``/``CMAKE_CXX_COMPILER_LAUNCHER``.
+  Use the same image to reproduce a CI failure locally:
+
+  .. code-block:: console
+
+    docker run --rm -it -v "$PWD":/llvm-project -w /llvm-project \
+           ghcr.io/llvm/ci-ubuntu-24.04:latest
+
+* Tests that execute SYCL code are marked ``REQUIRES: any-device``. Without a
+  device that the test suite recognizes (currently Level Zero GPUs) they are
+  reported as ``UNSUPPORTED``.
+
+See ``libsycl/test/README.md`` for running single tests with ``llvm-lit`` and
+for the available lit parameters.
 
 
 Limitations

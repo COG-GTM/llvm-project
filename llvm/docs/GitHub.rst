@@ -343,6 +343,42 @@ test failures directly linked to your changes. Our policy is still to keep the
 ``main`` branch in a good condition, and introducing failures to be fixed later
 violates that policy.
 
+What the "CI Checks" workflow runs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The main build and test check is the "CI Checks" workflow
+(``.github/workflows/premerge.yaml``). It runs on every pull request and on
+pushes to ``release/**`` branches:
+
+* ``.ci/compute_projects.py`` reads the list of files changed by the PR and
+  decides which projects and runtimes to build and which ``check-*`` targets
+  to run. Changing a project also tests the projects that depend on it (for
+  example, an LLVM change also runs ``check-clang``, ``check-lld``,
+  ``check-mlir`` and others), and each platform excludes some projects.
+* "Build and Test Linux" (x86_64) and "Build and Test Linux AArch64" run
+  ``.ci/monolithic-linux.sh`` in the ``ghcr.io/llvm/ci-ubuntu-24.04`` container
+  environment. "Build and Test Windows" runs ``.ci/monolithic-windows.sh``
+  with ``clang-cl``.
+* "MacOS Premerge Checks" runs only for pushes to ``release/**`` branches and
+  PRs targeting them. It builds with ``-DLLDB_INCLUDE_TESTS=OFF`` and
+  ``-DLLVM_DISABLE_ASSEMBLY_FILES=ON`` and does not build or test runtimes.
+
+To see which projects and targets CI will pick for your change, run this
+from the root of your checkout:
+
+.. code-block:: console
+
+  $ git diff --name-only origin/main...HEAD | python3 .ci/compute_projects.py
+
+Pass ``Windows`` or ``Darwin`` as an argument to see the selection for those
+platforms. The CI log prints the same values at the start of the "Build and
+Test" step.
+
+`.ci/README.md <https://github.com/llvm/llvm-project/blob/main/.ci/README.md>`_
+describes the project selection rules, the runners, the CI-only environment
+variables, and how to reproduce each job locally, including running
+``monolithic-linux.sh`` inside the CI container.
+
 Problems After Landing Your Change
 ==================================
 

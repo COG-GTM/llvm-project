@@ -1,5 +1,8 @@
 name: CI Checks
 
+# How this workflow picks projects and how to reproduce each job locally is
+# documented in .ci/README.md. Keep it in sync when changing the jobs below.
+
 permissions:
   contents: read
 

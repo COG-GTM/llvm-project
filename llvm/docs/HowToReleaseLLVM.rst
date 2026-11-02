@@ -183,16 +183,226 @@ GitHub.  This can be done using the ``github-upload-release.py`` script in ``uti
 Build The Binary Distribution
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Creating the binary distribution requires following the instructions
-:doc:`here <ReleaseProcess>`.
+The official release binaries for Linux, macOS and Windows are built and
+uploaded by GitHub Actions, as described in
+:ref:`automated-release-binaries` below.  Release managers do not need to build
+these binaries by hand.
 
-That process performs both Release+Asserts and Release builds but only packs
-the Release build for upload. You should use the Release+Asserts sysroot,
+Release testers and community members who build binaries for other platforms,
+or who want to validate a release candidate locally, use the manual
+``test-release.sh`` process described :doc:`here <ReleaseProcess>`.  That
+process is *not* how the binaries published by the GitHub workflows are made,
+so its output will not match them exactly.
+
+``test-release.sh`` performs both Release+Asserts and Release builds but only
+packs the Release build for upload. You should use the Release+Asserts sysroot,
 normally under ``final/Phase3/Release+Asserts/llvmCore-3.8.1-RCn.install/``,
 for test-suite and run-time benchmarks, to ensure nothing serious has
 passed through the net. For compile-time benchmarks, use the Release version.
 
 The minimum required version of the tools you'll need are :doc:`here <GettingStarted>`
+
+.. _automated-release-binaries:
+
+Automated Release Binaries
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Workflow chain
+""""""""""""""
+
+Pushing a release tag starts the following chain of GitHub workflows:
+
+::
+
+  git push origin llvmorg-X.Y.Z[-rcN]
+    -> .github/workflows/release-tasks.yml         (validate tag, create release)
+      -> .github/workflows/release-binaries-all.yml  (one job per platform)
+        -> .github/workflows/release-binaries.yml      (prepare, build, upload)
+
+* `release-tasks.yml
+  <https://github.com/llvm/llvm-project/actions/workflows/release-tasks.yml>`_
+  runs on ``llvmorg-*`` tag pushes in ``llvm/llvm-project`` only.  It checks
+  that the tag matches ``llvmorg-X.Y.Z`` or ``llvmorg-X.Y.Z-rcN``, creates the
+  GitHub release, and then calls ``release-binaries-all.yml`` with
+  ``upload: true``.  It also builds the documentation, doxygen, source
+  tarballs and the ``lit`` package.  When the binaries are done, it uncomments
+  the download links in the release notes.
+* `release-binaries-all.yml
+  <https://github.com/llvm/llvm-project/actions/workflows/release-binaries-all.yml>`_
+  calls ``release-binaries.yml`` once for each of these runners:
+  ``ubuntu-22.04``, ``ubuntu-22.04-arm``, ``macos-14``, ``windows-2022`` and
+  ``windows-11-arm`` (``fail-fast`` is off).  It also runs every Saturday on a
+  schedule, and on pull requests that change the release workflows or
+  ``clang/cmake/caches/Release.cmake``.  Scheduled and pull request runs never
+  upload anything.
+* `release-binaries.yml
+  <https://github.com/llvm/llvm-project/actions/workflows/release-binaries.yml>`_
+  has three jobs:
+
+  #. ``prepare`` checks permissions (see :ref:`release-binaries-permissions`),
+     works out the release version, file name, CMake flags and runners for the
+     platform.
+  #. ``build-release-package`` builds the package, saves it as a workflow
+     artifact together with its sha256 digest, and then runs the tests.
+  #. ``upload-release-binaries`` (skipped for pull requests) downloads the
+     artifact, checks the digest, generates a build provenance attestation and,
+     if ``upload`` is true, checks permissions again and uploads the package
+     and ``<file>.jsonl`` attestation to the GitHub release.
+
+All jobs in ``release-binaries.yml`` require
+``github.repository_owner == 'llvm'``, so the workflow does nothing in forks.
+
+Running the workflows manually
+""""""""""""""""""""""""""""""
+
+If a build fails or needs to be redone, a release manager can start it again
+from the Actions tab with ``workflow_dispatch``:
+
+* *Release Binaries All* builds all platforms.  Inputs: ``release-version``
+  (e.g. ``X.Y.Z-rcN``, required) and ``upload``.
+* *Release Binaries* builds one platform.  Inputs: ``release-version``,
+  ``upload`` and ``runs-on``.  Only ``ubuntu-22.04``, ``ubuntu-22.04-arm`` and
+  ``macos-14`` can be picked here; to rebuild Windows, use
+  *Release Binaries All*.
+
+When ``release-version`` is set, the workflow builds the ``llvmorg-<version>``
+tag.  The GitHub release for that version must already exist before
+``upload`` is turned on.  For example, with the GitHub CLI:
+
+::
+
+  $ gh workflow run release-binaries-all.yml --repo llvm/llvm-project \
+      -f release-version=X.Y.Z-rcN -f upload=true
+
+The workflow artifacts (package and attestation) can be downloaded from the run
+page and checked with ``gh attestation verify --owner llvm <file>``.
+
+.. _release-binaries-permissions:
+
+Secrets and permissions
+"""""""""""""""""""""""
+
+The workflows use one repository secret, ``RELEASE_TASKS_USER_TOKEN``.  It is a
+GitHub token that can read the members of the ``llvm`` organization's teams.
+It is passed to ``llvm/utils/release/github-upload-release.py`` as
+``--user-token`` together with ``--user $GITHUB_ACTOR``.  The script then
+checks that the user who started the workflow is a member of the
+``llvm-release-managers`` team, and fails otherwise.  The workflow's own
+``GITHUB_TOKEN`` (``contents: write``, ``id-token: write`` and
+``attestations: write`` on the upload job) does the actual release creation,
+attestation and upload.
+
+This check runs:
+
+* in ``release-tasks.yml`` before the release is created (the ``create``
+  command) and before ``lit`` is published,
+* in the ``prepare`` job of ``release-binaries.yml`` for every event except
+  ``pull_request`` (so scheduled and manual runs also need the secret and a
+  release manager), and
+* in ``upload-release-artifact`` right before the upload, when ``upload`` is
+  true.
+
+The secret is not available to pull request runs, which skip these checks and
+never upload.  If the token expires or can no longer read the team
+membership, every release workflow (except pull request runs) fails at the
+permission check, so the secret must be rotated in the repository settings.
+
+Build recipe
+""""""""""""
+
+On Linux and macOS, the package is built with the ``Release.cmake`` cache and
+the ``stage2-package`` target.  To reproduce a published binary locally, run
+the same commands from the root of a checkout of the release tag:
+
+::
+
+  $ cmake -G Ninja -S llvm -B build <platform flags> \
+      -C clang/cmake/caches/Release.cmake
+  $ ninja -C build stage2-package
+  $ ninja -C build stage2-check-all   # optional, see below
+
+The package ends up in the ``stage2-bins`` directory under the build
+directory and is named ``LLVM-<version>-<OS>-<arch>.tar.xz`` (for example
+``LLVM-X.Y.Z-Linux-X64.tar.xz``).  ``<platform flags>`` are the extra flags
+listed in the next section.  They must come before ``-C``, because
+``Release.cmake`` only sets its ``LLVM_RELEASE_*`` options if they are not
+already in the cache.
+
+``Release.cmake`` defaults to a multi-stage build with PGO
+(``LLVM_RELEASE_ENABLE_PGO=ON``) and ThinLTO (``LLVM_RELEASE_ENABLE_LTO=THIN``).
+With PGO on, the final stage is configured through ``BOOTSTRAP_BOOTSTRAP_*``
+variables; with PGO off, through ``BOOTSTRAP_*``.  See the comments at the top
+of ``clang/cmake/caches/Release.cmake`` for the projects and runtimes it
+enables on each platform.
+
+On Windows, the workflow runs
+``llvm/utils/release/build_llvm_release.bat --x64|--arm64 --version <version>
+--local-python --skip-checkout`` instead, which produces both the
+``clang+llvm-<version>-<arch>-pc-windows-msvc.tar.xz`` tarball and the
+``.exe`` installer.  It does not use ``Release.cmake`` or the flags computed in
+``prepare``.
+
+Platform differences
+""""""""""""""""""""
+
+The ``prepare`` job changes the runner and the CMake flags depending on the
+platform and on the event that started the workflow.  The binaries are
+therefore not all built with the same configuration:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Matrix entry
+     - Build runner (tag push or manual run)
+     - Build runner (pull request)
+     - Extra flags / configuration
+   * - ``ubuntu-22.04``, ``ubuntu-22.04-arm``
+     - ``depot-ubuntu-22.04-16``, ``depot-ubuntu-22.04-arm-16``
+     - same as tag push
+     - None.  PGO + ThinLTO.  Ubuntu 22.04 is used, rather than the latest
+       version, so the binaries work with older glibc versions.
+   * - ``macos-14``
+     - ``depot-macos-14``
+     - ``macos-14`` (GitHub-hosted)
+     - Always ``-DBOOTSTRAP_BOOTSTRAP_COMPILER_RT_ENABLE_IOS=OFF`` and
+       ``-DBOOTSTRAP_BOOTSTRAP_DARWIN_osx_ARCHS=arm64``
+       ``-DBOOTSTRAP_BOOTSTRAP_DARWIN_osx_BUILTIN_ARCHS=arm64`` (no iOS
+       compiler-rt, arm64 only, see `#99767
+       <https://github.com/llvm/llvm-project/issues/99767>`_).  On the
+       GitHub-hosted runner, also ``-DLLVM_RELEASE_ENABLE_LTO=OFF
+       -DLLVM_RELEASE_ENABLE_PGO=OFF`` so the build fits in the 6 hour job
+       limit.  flang is not built on macOS.
+   * - ``windows-2022``
+     - ``depot-windows-2022-16``
+     - same as tag push
+     - ``build_llvm_release.bat --x64``: PGO, no LTO.
+   * - ``windows-11-arm``
+     - ``windows-11-arm-16core``
+     - ``windows-11-arm`` (also used by scheduled runs)
+     - ``build_llvm_release.bat --arm64``: PGO, no LTO.
+
+On all platforms, the build sets ``CPACK_PACKAGE_FILE_NAME`` for the final
+stage to the release file name.  ``prepare`` also adds
+``-DLLVM_RELEASE_ENABLE_LTO=OFF`` for Windows because the build used to time
+out, but this flag is only used by the ``Release.cmake`` path, so it has no
+effect on the Windows build script.
+
+Because pull request runs on macOS use a different runner and configuration
+than tag pushes, a green pull request build does not prove that the full
+PGO + LTO release configuration builds on macOS.
+
+Tests do not block the release
+""""""""""""""""""""""""""""""
+
+On Linux and macOS, ``ninja stage2-check-all`` runs *after* the package has
+been saved as an artifact, and the step has ``continue-on-error: true``.  Test
+failures are shown in the job log but never stop the upload.  Release managers
+should look at the *Run Tests* step of each ``build-release-package`` job
+before announcing a release.
+
+On Windows, there is no separate test step.  ``build_llvm_release.bat`` runs a
+subset of ``check-*`` targets itself while building, and those do stop the
+build when they fail.
 
 Release Qualification Criteria
 ------------------------------

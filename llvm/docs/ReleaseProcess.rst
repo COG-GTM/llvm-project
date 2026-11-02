@@ -13,6 +13,14 @@ This document contains information about testing the release candidates that
 will ultimately be the next LLVM release. For more information on how to
 manage the actual release, please refer to :doc:`HowToReleaseLLVM`.
 
+The official release binaries attached to the GitHub release page are built by
+GitHub Actions, not by the scripts described here.  See
+:ref:`automated-release-binaries` in :doc:`HowToReleaseLLVM` for that pipeline
+and its build configuration.  The ``test-release.sh`` process below is the
+manual path for release testers and for platforms that the automated workflows
+do not cover; its builds use a different configuration from the published
+binaries.
+
 Overview of the Release Process
 -------------------------------
 

@@ -1323,7 +1323,8 @@ HANDLE_DW_APPLE_PROPERTY(0x2000, null_resettable)
 HANDLE_DW_APPLE_PROPERTY(0x4000, class)
 
 // Enum kinds.
-// Keep in sync with EnumExtensibilityAttr::Kind.
+// Clang (CGDebugInfo.cpp) and LLDB (DWARFASTParserClang.cpp) map these
+// explicitly to/from EnumExtensibilityAttr::Kind.
 HANDLE_DW_APPLE_ENUM_KIND(0x00, Closed)
 HANDLE_DW_APPLE_ENUM_KIND(0x01, Open)
 

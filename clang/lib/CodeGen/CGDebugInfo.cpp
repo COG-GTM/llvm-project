@@ -41,6 +41,7 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -3984,6 +3985,17 @@ llvm::DIType *CGDebugInfo::CreateEnumType(const EnumType *Ty) {
   return CreateTypeDefinition(Ty);
 }
 
+static llvm::dwarf::EnumKindAttribute
+getDwarfEnumKind(EnumExtensibilityAttr::Kind Kind) {
+  switch (Kind) {
+  case EnumExtensibilityAttr::Closed:
+    return llvm::dwarf::DW_APPLE_ENUM_KIND_Closed;
+  case EnumExtensibilityAttr::Open:
+    return llvm::dwarf::DW_APPLE_ENUM_KIND_Open;
+  }
+  llvm_unreachable("unknown EnumExtensibilityAttr::Kind");
+}
+
 llvm::DIType *CGDebugInfo::CreateTypeDefinition(const EnumType *Ty) {
   auto [ED, Size, Align, Identifier] = getEnumInfo(CGM, TheCU, Ty);
 
@@ -3995,9 +4007,9 @@ llvm::DIType *CGDebugInfo::CreateTypeDefinition(const EnumType *Ty) {
         DBuilder.createEnumerator(Enum->getName(), Enum->getInitVal()));
   }
 
-  std::optional<EnumExtensibilityAttr::Kind> EnumKind;
+  std::optional<uint32_t> EnumKind;
   if (auto *Attr = ED->getAttr<EnumExtensibilityAttr>())
-    EnumKind = Attr->getExtensibility();
+    EnumKind = getDwarfEnumKind(Attr->getExtensibility());
 
   // Return a CompositeType for the enum itself.
   llvm::DINodeArray EltArray = DBuilder.getOrCreateArray(Enumerators);

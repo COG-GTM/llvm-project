@@ -622,6 +622,19 @@ macro(add_custom_libcxx name prefix)
   if(NOT COMPILER_RT_LIBCXXABI_PATH)
     message(FATAL_ERROR "libcxxabi not found!")
   endif()
+  get_filename_component(CUSTOM_LIBCXX_SOURCE_DIR "${COMPILER_RT_LIBCXX_PATH}" ABSOLUTE)
+  get_filename_component(CUSTOM_LIBCXXABI_SOURCE_DIR "${COMPILER_RT_LIBCXXABI_PATH}" ABSOLUTE)
+  if(COMPILER_RT_RUNTIMES_SOURCE_DIR)
+    get_filename_component(CUSTOM_LIBCXX_RUNTIMES_DIR "${COMPILER_RT_RUNTIMES_SOURCE_DIR}" ABSOLUTE)
+  else()
+    get_filename_component(CUSTOM_LIBCXX_RUNTIMES_DIR "${CUSTOM_LIBCXX_SOURCE_DIR}/../runtimes" ABSOLUTE)
+  endif()
+  if(NOT EXISTS "${CUSTOM_LIBCXX_RUNTIMES_DIR}/CMakeLists.txt")
+    message(FATAL_ERROR "runtimes source directory not found at "
+      "'${CUSTOM_LIBCXX_RUNTIMES_DIR}' (COMPILER_RT_LIBCXX_PATH is "
+      "'${COMPILER_RT_LIBCXX_PATH}'). Set COMPILER_RT_RUNTIMES_SOURCE_DIR to "
+      "the LLVM runtimes directory used to build libc++.")
+  endif()
 
   cmake_parse_arguments(LIBCXX "USE_TOOLCHAIN" "" "DEPS;CFLAGS;CMAKE_ARGS" ${ARGN})
 
@@ -709,7 +722,7 @@ macro(add_custom_libcxx name prefix)
   ExternalProject_Add(${name}
     DEPENDS ${name}-clobber ${LIBCXX_DEPS}
     PREFIX ${prefix}
-    SOURCE_DIR ${LLVM_MAIN_SRC_DIR}/../runtimes
+    SOURCE_DIR ${CUSTOM_LIBCXX_RUNTIMES_DIR}
     BINARY_DIR ${prefix}/build
     CMAKE_ARGS ${CMAKE_PASSTHROUGH_VARIABLES}
                ${compiler_args}
@@ -721,6 +734,8 @@ macro(add_custom_libcxx name prefix)
                -DCMAKE_INSTALL_MESSAGE=LAZY
                -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY
                -DLLVM_ENABLE_RUNTIMES=libcxx|libcxxabi
+               -DLLVM_EXTERNAL_LIBCXX_SOURCE_DIR=${CUSTOM_LIBCXX_SOURCE_DIR}
+               -DLLVM_EXTERNAL_LIBCXXABI_SOURCE_DIR=${CUSTOM_LIBCXXABI_SOURCE_DIR}
                -DLIBCXXABI_USE_LLVM_UNWINDER=OFF
                -DLIBCXXABI_ENABLE_SHARED=OFF
                -DLIBCXXABI_HERMETIC_STATIC_LIBRARY=ON

@@ -813,6 +813,8 @@ add_subdirectory(include)
 
 option(COMPILER_RT_USE_LIBCXX
   "Enable compiler-rt to use libc++ from the source tree" ON)
+set(COMPILER_RT_RUNTIMES_SOURCE_DIR "" CACHE PATH
+  "LLVM runtimes source directory used to build the custom libc++ (defaults to the runtimes directory next to libcxx)")
 if(COMPILER_RT_USE_LIBCXX)
   if(LLVM_ENABLE_PROJECTS_USED)
     # Don't use libcxx if LLVM_ENABLE_PROJECTS does not enable it.

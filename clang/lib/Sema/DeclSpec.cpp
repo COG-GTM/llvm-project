@@ -25,6 +25,23 @@
 #include <cstring>
 using namespace clang;
 
+static_assert(unsigned(DeclSpec::TQ_const) == Qualifiers::Const &&
+                  unsigned(DeclSpec::TQ_restrict) == Qualifiers::Restrict &&
+                  unsigned(DeclSpec::TQ_volatile) == Qualifiers::Volatile,
+              "DeclSpec::TQ must be kept in sync with Qualifiers::TQ");
+
+static_assert(
+    unsigned(ObjCDeclSpec::DQ_None) == Decl::OBJC_TQ_None &&
+        unsigned(ObjCDeclSpec::DQ_In) == Decl::OBJC_TQ_In &&
+        unsigned(ObjCDeclSpec::DQ_Inout) == Decl::OBJC_TQ_Inout &&
+        unsigned(ObjCDeclSpec::DQ_Out) == Decl::OBJC_TQ_Out &&
+        unsigned(ObjCDeclSpec::DQ_Bycopy) == Decl::OBJC_TQ_Bycopy &&
+        unsigned(ObjCDeclSpec::DQ_Byref) == Decl::OBJC_TQ_Byref &&
+        unsigned(ObjCDeclSpec::DQ_Oneway) == Decl::OBJC_TQ_Oneway &&
+        unsigned(ObjCDeclSpec::DQ_CSNullability) ==
+            Decl::OBJC_TQ_CSNullability,
+    "ObjCDeclSpec::ObjCDeclQualifier must be kept in sync with "
+    "Decl::ObjCDeclQualifier");
 
 void UnqualifiedId::setTemplateId(TemplateIdAnnotation *TemplateId) {
   assert(TemplateId && "NULL template-id annotation?");

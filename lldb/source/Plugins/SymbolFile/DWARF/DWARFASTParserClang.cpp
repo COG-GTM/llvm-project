@@ -543,8 +543,14 @@ ParsedDWARFTypeAttributes::ParsedDWARFTypeAttributes(const DWARFDIE &die) {
       ref_qual = clang::RQ_LValue;
       break;
     case DW_AT_APPLE_enum_kind:
-      enum_kind = static_cast<clang::EnumExtensibilityAttr::Kind>(
-          form_value.Unsigned());
+      switch (form_value.Unsigned()) {
+      case DW_APPLE_ENUM_KIND_Closed:
+        enum_kind = clang::EnumExtensibilityAttr::Closed;
+        break;
+      case DW_APPLE_ENUM_KIND_Open:
+        enum_kind = clang::EnumExtensibilityAttr::Open;
+        break;
+      }
       break;
     }
   }

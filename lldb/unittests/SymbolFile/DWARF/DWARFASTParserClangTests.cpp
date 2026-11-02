@@ -2118,3 +2118,126 @@ DWARF:
   EXPECT_EQ(type_sp->GetName(), "Bar<int>");
   EXPECT_EQ(type_sp->GetForwardCompilerType().GetTypeName(), "Foo::Bar<int>");
 }
+
+TEST_F(DWARFASTParserClangTests, TestEnumKindParsing) {
+  // Tests that DW_AT_APPLE_enum_kind is mapped explicitly onto
+  // clang::EnumExtensibilityAttr and that unknown values are ignored.
+
+  const char *yamldata = R"(
+--- !ELF
+FileHeader:
+  Class:   ELFCLASS64
+  Data:    ELFDATA2LSB
+  Type:    ET_EXEC
+  Machine: EM_AARCH64
+DWARF:
+  debug_str:
+    - ClosedEnum
+    - OpenEnum
+    - UnknownEnum
+  debug_abbrev:
+    - ID:              0
+      Table:
+        - Code:            0x1
+          Tag:             DW_TAG_compile_unit
+          Children:        DW_CHILDREN_yes
+          Attributes:
+            - Attribute:       DW_AT_language
+              Form:            DW_FORM_data2
+        - Code:            0x2
+          Tag:             DW_TAG_enumeration_type
+          Children:        DW_CHILDREN_no
+          Attributes:
+            - Attribute: DW_AT_name
+              Form:      DW_FORM_strp
+            - Attribute: DW_AT_byte_size
+              Form:      DW_FORM_data1
+            - Attribute: DW_AT_APPLE_enum_kind
+              Form:      DW_FORM_data1
+
+  debug_info:
+     - Version:  5
+       UnitType: DW_UT_compile
+       AddrSize: 8
+       Entries:
+
+# DW_TAG_compile_unit
+#   DW_AT_language [DW_FORM_data2]    (DW_LANG_ObjC)
+
+        - AbbrCode: 0x1
+          Values:
+            - Value: 0x10
+
+#   DW_TAG_enumeration_type
+#     DW_AT_name [DW_FORM_strp] ('ClosedEnum')
+#     DW_AT_APPLE_enum_kind (DW_APPLE_ENUM_KIND_Closed)
+
+        - AbbrCode: 0x2
+          Values:
+            - Value: 0x0
+            - Value: 0x04
+            - Value: 0x00
+
+#   DW_TAG_enumeration_type
+#     DW_AT_name [DW_FORM_strp] ('OpenEnum')
+#     DW_AT_APPLE_enum_kind (DW_APPLE_ENUM_KIND_Open)
+
+        - AbbrCode: 0x2
+          Values:
+            - Value: 0xb
+            - Value: 0x04
+            - Value: 0x01
+
+#   DW_TAG_enumeration_type
+#     DW_AT_name [DW_FORM_strp] ('UnknownEnum')
+#     DW_AT_APPLE_enum_kind (0x02, not a valid DW_APPLE_ENUM_KIND)
+
+        - AbbrCode: 0x2
+          Values:
+            - Value: 0x14
+            - Value: 0x04
+            - Value: 0x02
+
+        - AbbrCode: 0x0
+...
+)";
+  DWARFASTParserClangYAMLTester tester(yamldata);
+  DWARFDIE cu_die = tester.GetCUDIE();
+
+  auto parse_enum = [&](const DWARFDIE &die) -> clang::EnumDecl * {
+    EXPECT_TRUE(die.IsValid());
+    EXPECT_EQ(die.Tag(), DW_TAG_enumeration_type);
+    SymbolContext sc;
+    TypeSP type_sp = tester.GetParser().ParseTypeFromDWARF(
+        sc, die, /*type_is_new_ptr=*/nullptr);
+    if (!type_sp)
+      return nullptr;
+    return TypeSystemClang::GetAsEnumDecl(type_sp->GetForwardCompilerType());
+  };
+
+  DWARFDIE closed_die = cu_die.GetFirstChild();
+  ParsedDWARFTypeAttributes closed_attrs(closed_die);
+  EXPECT_EQ(closed_attrs.enum_kind, clang::EnumExtensibilityAttr::Closed);
+  clang::EnumDecl *closed_decl = parse_enum(closed_die);
+  ASSERT_NE(closed_decl, nullptr);
+  auto *closed_attr = closed_decl->getAttr<clang::EnumExtensibilityAttr>();
+  ASSERT_NE(closed_attr, nullptr);
+  EXPECT_EQ(closed_attr->getExtensibility(),
+            clang::EnumExtensibilityAttr::Closed);
+
+  DWARFDIE open_die = closed_die.GetSibling();
+  ParsedDWARFTypeAttributes open_attrs(open_die);
+  EXPECT_EQ(open_attrs.enum_kind, clang::EnumExtensibilityAttr::Open);
+  clang::EnumDecl *open_decl = parse_enum(open_die);
+  ASSERT_NE(open_decl, nullptr);
+  auto *open_attr = open_decl->getAttr<clang::EnumExtensibilityAttr>();
+  ASSERT_NE(open_attr, nullptr);
+  EXPECT_EQ(open_attr->getExtensibility(), clang::EnumExtensibilityAttr::Open);
+
+  DWARFDIE unknown_die = open_die.GetSibling();
+  ParsedDWARFTypeAttributes unknown_attrs(unknown_die);
+  EXPECT_FALSE(unknown_attrs.enum_kind.has_value());
+  clang::EnumDecl *unknown_decl = parse_enum(unknown_die);
+  ASSERT_NE(unknown_decl, nullptr);
+  EXPECT_FALSE(unknown_decl->hasAttr<clang::EnumExtensibilityAttr>());
+}

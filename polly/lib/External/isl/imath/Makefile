@@ -54,7 +54,7 @@ OTHER=LICENSE ChangeLog Makefile doc.md doc.md.in \
 VPATH += examples tests
 EXAMPLES=basecvt findprime imcalc input pi randprime rounding rsakey
 
-.PHONY: all test clean distclean
+.PHONY: all test check-doc clean distclean
 .SUFFIXES: .so .md
 
 .c.o:
@@ -123,7 +123,12 @@ format: format-c format-py
 # This rule depends on the header files to ensure the docs get updated when the
 # headers change.
 doc.md: doc.md.in imath.h imrat.h tools/mkdoc.py
-	tools/mkdoc.py $< $@
+	python3 tools/mkdoc.py $< $@
+
+# Verify that the committed doc.md matches the headers and template.
+check-doc: doc.md.in imath.h imrat.h tools/mkdoc.py
+	python3 tools/mkdoc.py doc.md.in doc.md.check
+	cmp doc.md doc.md.check; s=$$?; rm -f doc.md.check; exit $$s
 
 clean distclean:
 	rm -f *.o *.so *.pyc *~ core gmon.out tests/*~ tests/gmon.out examples/*~

@@ -39,7 +39,9 @@ The `Check C++ DR status page` CI job
 `clang/www/make_cxx_dr_status --check` on pull requests that touch this
 directory or the generator. It reuses the issue list stored in the committed
 page (no network access) and fails if the page does not match the comments
-here, or if `latest_release` in the generator looks stale.
+here, if a comment refers to an issue that has no row in the page yet, or if
+`latest_release` in the generator looks stale. It does not detect hand edits to
+the CWG-derived columns (section, status, title); never edit the page by hand.
 
 After each Clang major release is published, set `latest_release` in
 `clang/www/make_cxx_dr_status` to the new version and regenerate the page, so

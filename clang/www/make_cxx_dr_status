@@ -15,7 +15,8 @@
 #       read from clang/www/cwg_index.html if present, else downloaded.
 #   make_cxx_dr_status --check [<path to cwg_index.html>]
 #       Do not write anything; exit with an error if cxx_dr_status.html is out
-#       of date with respect to the DR tests. Without an argument, the issue
+#       of date with respect to the DR tests (or a test refers to an issue
+#       missing from the page). Without an argument, the issue
 #       list is read back from the committed cxx_dr_status.html, so no network
 #       access is needed. This is run by .github/workflows/clang-cxx-dr-status.yml.
 #
@@ -167,6 +168,14 @@ elif args:
 status_map = collect_tests()
 if check_only and issue_list_path is None:
   drs = get_issues_from_generated_page()
+  # The committed page only knows issues that existed when it was last
+  # regenerated; a comment for any other issue would never produce a row.
+  missing = sorted(set(status_map) - {dr.number for dr in drs})
+  if missing:
+    print('error: no row in cxx_dr_status.html for {}; run '
+          'clang/www/make_cxx_dr_status with a current CWG issue list and commit the result'
+          .format(', '.join('cwg{}'.format(n) for n in missing)), file=sys.stderr)
+    sys.exit(1)
 else:
   drs = get_issues(issue_list_path)
 out_html = []

@@ -4,29 +4,9 @@
 
 """Helper macros to configure the LLVM overlay project."""
 
-# Should be kept in sync with LLVM_ALL_TARGETS in llvm/CMakeLists.txt
-DEFAULT_TARGETS = [
-    "AArch64",
-    "AMDGPU",
-    "ARM",
-    "AVR",
-    "BPF",
-    "Hexagon",
-    "Lanai",
-    "LoongArch",
-    "Mips",
-    "MSP430",
-    "NVPTX",
-    "PowerPC",
-    "RISCV",
-    "Sparc",
-    "SPIRV",
-    "SystemZ",
-    "VE",
-    "WebAssembly",
-    "X86",
-    "XCore",
-]
+# Default for `llvm_configure(targets = ...)`: expands to LLVM_ALL_TARGETS
+# parsed from llvm/CMakeLists.txt. An explicit list (including []) is kept.
+ALL_TARGETS = "LLVM_ALL_TARGETS"
 
 MAX_TRAVERSAL_STEPS = 1000000  # "big number" upper bound on total visited dirs
 
@@ -145,6 +125,27 @@ def _extract_cmake_settings(repository_ctx, llvm_cmake):
 
     return c
 
+def _extract_cmake_list(repository_ctx, llvm_cmake, name):
+    """Returns the words of the first `set(<name> ...)` in `llvm_cmake`."""
+    llvm_cmake_path = repository_ctx.path(Label("//:" + llvm_cmake))
+    values = None
+    for line in repository_ctx.read(llvm_cmake_path).splitlines():
+        line = line.partition("#")[0]
+        if values == None:
+            setfoo = line.partition("(")
+            if setfoo[1] != "(" or setfoo[0].strip().lower() != "set":
+                continue
+            words = setfoo[2].split()
+            if not words or words[0].partition(")")[0] != name:
+                continue
+            values = []
+            line = setfoo[2].strip()[len(name):]
+        body = line.partition(")")
+        values.extend(body[0].split())
+        if body[1] == ")":
+            return values
+    fail("Could not find a complete `set({} ...)` in {}".format(name, llvm_cmake))
+
 def _write_dict_to_file(repository_ctx, filepath, header, vars):
     # (fci + individual vars) + (fcd + dict items) + (fct)
     fci = header
@@ -181,8 +182,15 @@ def _llvm_configure_impl(repository_ctx):
         vars = vars,
     )
 
-    # Create a starlark file with the requested LLVM targets.
+    # Create a starlark file with the requested LLVM targets. Default to
+    # LLVM_ALL_TARGETS so Bazel builds the same backends as CMake.
     llvm_targets = repository_ctx.attr.targets
+    if llvm_targets == [ALL_TARGETS]:
+        llvm_targets = _extract_cmake_list(
+            repository_ctx,
+            llvm_cmake,
+            "LLVM_ALL_TARGETS",
+        )
     repository_ctx.file(
         "llvm/targets.bzl",
         content = "llvm_targets = " + str(llvm_targets),
@@ -203,6 +211,9 @@ llvm_configure = repository_rule(
     local = True,
     configure = True,
     attrs = {
-        "targets": attr.string_list(default = DEFAULT_TARGETS),
+        "targets": attr.string_list(
+            default = [ALL_TARGETS],
+            doc = "LLVM targets to build (default: LLVM_ALL_TARGETS).",
+        ),
     },
 )

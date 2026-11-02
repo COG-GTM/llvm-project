@@ -5,7 +5,8 @@ class S<string name> : Separate<["--", "-"], name>;
 class R<list<string> prefixes, string name>
     : Option<prefixes, name, KIND_REMAINING_ARGS>;
 
-// Please keep this in sync with the man page in docs/man/lldb.rst
+// Please keep this in sync with the man page in docs/man/lldb.rst.
+// test/Shell/Driver/TestHelp.test checks that both list the same options.
 
 // Attaching options.
 def grp_attach : OptionGroup<"attaching">, HelpText<"ATTACHING">;

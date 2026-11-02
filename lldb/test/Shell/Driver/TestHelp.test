@@ -1,6 +1,17 @@
 RUN: %lldb --help | FileCheck %s
 RUN: cat %S/../../../docs/man/lldb.rst | FileCheck %s
 
+# The CHECK lines below only prove that both list these options. Also check
+# that lldb.rst documents exactly the options lldb accepts, in both directions.
+RUN: %lldb --help > %t.help
+RUN: %python %S/Inputs/check-man-page-options.py %S/../../../docs/man/lldb.rst %t.help
+
+RUN: echo '.. option:: --replay <filename>' > %t.stale.rst
+RUN: cat %S/../../../docs/man/lldb.rst >> %t.stale.rst
+RUN: not %python %S/Inputs/check-man-page-options.py %t.stale.rst %t.help \
+RUN:   | FileCheck %s --check-prefix=STALE
+STALE: error: lldb.rst documents --replay, which lldb does not accept
+
 CHECK: ATTACHING
 CHECK: --attach-name
 CHECK: --attach-pid

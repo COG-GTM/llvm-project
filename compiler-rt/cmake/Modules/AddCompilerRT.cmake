@@ -628,6 +628,14 @@ macro(add_custom_libcxx name prefix)
     get_filename_component(CUSTOM_LIBCXX_RUNTIMES_DIR "${COMPILER_RT_RUNTIMES_SOURCE_DIR}" ABSOLUTE)
   else()
     get_filename_component(CUSTOM_LIBCXX_RUNTIMES_DIR "${CUSTOM_LIBCXX_SOURCE_DIR}/../runtimes" ABSOLUTE)
+    # Legacy layouts (llvm/projects/libcxx, llvm/runtimes/libcxx) keep the
+    # runtimes directory next to the llvm source tree.
+    get_filename_component(CUSTOM_LIBCXX_LLVM_SRC_DIR "${LLVM_MAIN_SRC_DIR}" ABSOLUTE)
+    if(NOT EXISTS "${CUSTOM_LIBCXX_RUNTIMES_DIR}/CMakeLists.txt" AND
+       (CUSTOM_LIBCXX_SOURCE_DIR STREQUAL "${CUSTOM_LIBCXX_LLVM_SRC_DIR}/projects/libcxx" OR
+        CUSTOM_LIBCXX_SOURCE_DIR STREQUAL "${CUSTOM_LIBCXX_LLVM_SRC_DIR}/runtimes/libcxx"))
+      get_filename_component(CUSTOM_LIBCXX_RUNTIMES_DIR "${CUSTOM_LIBCXX_LLVM_SRC_DIR}/../runtimes" ABSOLUTE)
+    endif()
   endif()
   if(NOT EXISTS "${CUSTOM_LIBCXX_RUNTIMES_DIR}/CMakeLists.txt")
     message(FATAL_ERROR "runtimes source directory not found at "
@@ -736,6 +744,7 @@ macro(add_custom_libcxx name prefix)
                -DLLVM_ENABLE_RUNTIMES=libcxx|libcxxabi
                -DLLVM_EXTERNAL_LIBCXX_SOURCE_DIR=${CUSTOM_LIBCXX_SOURCE_DIR}
                -DLLVM_EXTERNAL_LIBCXXABI_SOURCE_DIR=${CUSTOM_LIBCXXABI_SOURCE_DIR}
+               -DLIBCXXABI_LIBCXX_PATH=${CUSTOM_LIBCXX_SOURCE_DIR}
                -DLIBCXXABI_USE_LLVM_UNWINDER=OFF
                -DLIBCXXABI_ENABLE_SHARED=OFF
                -DLIBCXXABI_HERMETIC_STATIC_LIBRARY=ON

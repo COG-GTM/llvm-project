@@ -22,15 +22,10 @@
 
 namespace __nsan {
 
+// Shared with the instrumentation pass.
 enum class CheckTypeT {
-  kUnknown = 0,
-  kRet,
-  kArg,
-  kLoad,
-  kStore,
-  kInsert,
-  kUser, // User initiated.
-  kFcmp,
+#define NSAN_CHECK_TYPE(Name) k##Name,
+#include "nsan_abi.inc"
   kMaxCheckType,
 };
 

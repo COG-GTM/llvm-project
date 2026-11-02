@@ -52,8 +52,6 @@
 using namespace __sanitizer;
 using namespace __nsan;
 
-constexpr int kMaxVectorWidth = 8;
-
 // When copying application memory, we also copy its shadow and shadow type.
 extern "C" SANITIZER_INTERFACE_ATTRIBUTE void
 __nsan_copy_values(const void *daddr, const void *saddr, uptr size) {
@@ -419,24 +417,26 @@ __nsan_dump_shadow_mem(const u8 *addr, size_t size_bytes, size_t bytes_per_line,
 alignas(64) SANITIZER_INTERFACE_ATTRIBUTE
     thread_local uptr __nsan_shadow_ret_tag = 0;
 
+static_assert(sizeof(__float128) == kMaxShadowTypeSizeBytes,
+              "shadow slots must hold the largest shadow type");
+
 alignas(64) SANITIZER_INTERFACE_ATTRIBUTE
     thread_local char __nsan_shadow_ret_ptr[kMaxVectorWidth *
-                                            sizeof(__float128)];
+                                            kMaxShadowTypeSizeBytes];
 
 alignas(64) SANITIZER_INTERFACE_ATTRIBUTE
     thread_local uptr __nsan_shadow_args_tag = 0;
 
-// Maximum number of args. This should be enough for anyone (tm). An alternate
-// scheme is to have the generated code create an alloca and make
-// __nsan_shadow_args_ptr point ot the alloca.
-constexpr const int kMaxNumArgs = 128;
+// kMaxNumArgs should be enough for anyone (tm). An alternate scheme is to have
+// the generated code create an alloca and make __nsan_shadow_args_ptr point to
+// the alloca.
 alignas(64) SANITIZER_INTERFACE_ATTRIBUTE
     thread_local char __nsan_shadow_args_ptr[kMaxVectorWidth * kMaxNumArgs *
-                                             sizeof(__float128)];
+                                             kMaxShadowTypeSizeBytes];
 
-enum ContinuationType { // Keep in sync with instrumentation pass.
-  kContinueWithShadow = 0,
-  kResumeFromValue = 1,
+enum ContinuationType { // Shared with the instrumentation pass.
+#define NSAN_CONTINUATION_TYPE(Name, Value) k##Name = Value,
+#include "nsan_abi.inc"
 };
 
 // Checks the consistency between application and shadow value. Returns true

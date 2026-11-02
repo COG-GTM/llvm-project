@@ -1676,6 +1676,7 @@ cc_library(
         "include/llvm/Transforms/Utils/Instrumentation.h",
     ],
     copts = llvm_copts,
+    textual_hdrs = glob(["include/llvm/Transforms/Instrumentation/*.inc"]),
     deps = [
         ":Analysis",
         ":BinaryFormat",

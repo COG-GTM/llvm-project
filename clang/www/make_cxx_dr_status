@@ -1,5 +1,26 @@
 #! /usr/bin/env python3
-import sys, os, re, urllib.request
+# Generates clang/www/cxx_dr_status.html from the `// cwgNNN: <status>`
+# comments in clang/test/CXX/drs/*.cpp and the CWG issue list.
+#
+# Rerun it and commit the regenerated cxx_dr_status.html:
+#  - after adding or changing any `// cwgNNN:` comment in clang/test/CXX/drs;
+#  - after bumping `latest_release` below, which must be done once each Clang
+#    major release is published (it marks DRs implemented in that release as
+#    released instead of unreleased);
+#  - periodically, to pick up new issues and status changes from CWG.
+#
+# Usage:
+#   make_cxx_dr_status [<path to cwg_index.html>]
+#       Regenerate cxx_dr_status.html. Without an argument, the issue list is
+#       read from clang/www/cwg_index.html if present, else downloaded.
+#   make_cxx_dr_status --check [<path to cwg_index.html>]
+#       Do not write anything; exit with an error if cxx_dr_status.html is out
+#       of date with respect to the DR tests. Without an argument, the issue
+#       list is read back from the committed cxx_dr_status.html, so no network
+#       access is needed. This is run by .github/workflows/clang-cxx-dr-status.yml.
+#
+# See clang/test/CXX/drs/README.md for the status comment syntax.
+import sys, os, re, difflib, urllib.request
 
 latest_release = 21
 
@@ -8,6 +29,7 @@ default_issue_list_path = os.path.join(clang_www_dir, 'cwg_index.html')
 issue_list_url = "https://raw.githubusercontent.com/cplusplus/CWG/gh-pages/issues/cwg_index.html"
 output = os.path.join(clang_www_dir, 'cxx_dr_status.html')
 dr_test_dir = os.path.join(clang_www_dir, '../test/CXX/drs')
+llvm_version_cmake = os.path.join(clang_www_dir, '../../cmake/Modules/LLVMVersion.cmake')
 
 class DR:
   def __init__(self, *, section_number, section_name, section_link, number, url, status, liaison, title):
@@ -40,6 +62,28 @@ class DR:
       status=match.group('status'),
       liaison=match.group('liaison'),
       title=match.group('title').replace('\n', ' ').strip())
+
+  # Matches a row previously emitted into cxx_dr_status.html, so that the
+  # committed page can serve as an offline snapshot of the CWG issue list.
+  generated_row_pattern = re.compile(r'''
+  <tr(?: class="[^"]*")? id="(?P<number>[0-9]+)">
+    <td><a href="(?P<url>[^"]*)">[0-9]+</a></td>
+    <td>\[<a href="(?P<section_link>[^"]*)">(?P<section_name>.*?)</a>\]</td>
+    <td>(?P<status>[^<]*)</td>
+    <td>(?P<title>.*?)</td>
+    <td[^>]*>''', re.DOTALL)
+
+  @classmethod
+  def parse_from_generated_html(cls, html_string):
+    return [cls(section_number='',
+                section_name=match.group('section_name'),
+                section_link=match.group('section_link'),
+                number=int(match.group('number')),
+                url=match.group('url'),
+                status=match.group('status'),
+                liaison='',
+                title=match.group('title'))
+            for match in cls.generated_row_pattern.finditer(html_string)]
 
 def collect_tests():
   status_re = re.compile(r'\bcwg([0-9]+): (.*)')
@@ -82,17 +126,49 @@ def get_issues(path):
                 key = lambda dr: dr.number)
 
 
-issue_list_path  = None
-if len(sys.argv) == 1:
-  pass
-elif len(sys.argv) == 2:
-  issue_list_path = sys.argv[1]
-else:
-  print('Usage: {} [<path to cwg_index.html>]'.format(sys.argv[0]), file=sys.stderr)
+def get_issues_from_generated_page():
+  print('Reading issue list back from {}'.format(output))
+  with open(output, 'r', encoding='utf-8') as f:
+    drs = DR.parse_from_generated_html(f.read())
+  if not drs:
+    print('error: no issues found in {}'.format(output), file=sys.stderr)
+    sys.exit(1)
+  return drs
+
+def check_latest_release():
+  # Once the release branch for Clang N is created, main reports version N+1,
+  # and Clang N is published a few weeks later. So `latest_release` should be
+  # either major-2 (N branched, not yet published) or major-1 (N published).
+  try:
+    with open(llvm_version_cmake, 'r', encoding='utf-8') as f:
+      major = int(re.search(r'set\(LLVM_VERSION_MAJOR ([0-9]+)\)', f.read()).group(1))
+  except Exception as ex:
+    print('warning: cannot read LLVM_VERSION_MAJOR from {}: {}'.format(llvm_version_cmake, ex), file=sys.stderr)
+    return True
+  if latest_release not in (major - 2, major - 1):
+    print('error: latest_release = {} in {} looks stale for LLVM_VERSION_MAJOR {}; '
+          'set it to the newest published Clang major version ({} or {})'
+          .format(latest_release, os.path.basename(__file__), major, major - 2, major - 1),
+          file=sys.stderr)
+    return False
+  return True
+
+usage = 'Usage: {} [--check] [<path to cwg_index.html>]'.format(sys.argv[0])
+args = sys.argv[1:]
+check_only = '--check' in args
+args = [arg for arg in args if arg != '--check']
+issue_list_path = None
+if len(args) == 1 and not args[0].startswith('-'):
+  issue_list_path = args[0]
+elif args:
+  print(usage, file=sys.stderr)
   sys.exit(1)
 
 status_map = collect_tests()
-drs = get_issues(issue_list_path)
+if check_only and issue_list_path is None:
+  drs = get_issues_from_generated_page()
+else:
+  drs = get_issues(issue_list_path)
 out_html = []
 out_html.append('''\
 <!DOCTYPE html>
@@ -329,6 +405,20 @@ out_html.append('''\
 </body>
 </html>
 ''')
+
+if check_only:
+  generated = ''.join(out_html)
+  with open(output, 'r', encoding='utf-8') as f:
+    committed = f.read()
+  up_to_date = check_latest_release()
+  if generated != committed:
+    up_to_date = False
+    sys.stdout.writelines(difflib.unified_diff(
+        committed.splitlines(keepends=True), generated.splitlines(keepends=True),
+        'a/clang/www/cxx_dr_status.html', 'b/clang/www/cxx_dr_status.html'))
+    print('error: cxx_dr_status.html is out of date with clang/test/CXX/drs; '
+          'run clang/www/make_cxx_dr_status and commit the result', file=sys.stderr)
+  sys.exit(0 if up_to_date else 1)
 
 # Make an effort to remain consistent with the existing file.
 # We can't pick one newline style and use it on Windows,

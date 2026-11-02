@@ -1,0 +1,30 @@
+name: "Check C++ DR status page"
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - 'clang/test/CXX/drs/**'
+      - 'clang/www/make_cxx_dr_status'
+      - 'clang/www/cxx_dr_status.html'
+      - 'cmake/Modules/LLVMVersion.cmake'
+      - '.github/workflows/clang-cxx-dr-status.yml'
+
+jobs:
+  check-cxx-dr-status:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Fetch LLVM sources
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            clang/test/CXX/drs
+            clang/www
+            cmake/Modules
+
+      - name: Check that cxx_dr_status.html is up to date
+        run: python3 clang/www/make_cxx_dr_status --check

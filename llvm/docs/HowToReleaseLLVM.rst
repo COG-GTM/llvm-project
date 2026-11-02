@@ -158,6 +158,11 @@ Tag release candidates:
 
   $ git tag -sa llvmorg-X.Y.Z-rcN
 
+Pushing the tag starts the automated release pipeline described in
+:ref:`automated-release-tasks`.  Read that section before pushing a tag: among
+other things, the pipeline publishes ``lit`` to PyPI and uploads the release
+binaries for you.
+
 The pre-packaged source tarballs will be automatically generated via the
 `Release Sources
 <https://github.com/llvm/llvm-project/actions/workflows/release-sources.yml>`_
@@ -178,6 +183,122 @@ GitHub.  This can be done using the ``github-upload-release.py`` script in ``uti
 ::
 
   $ github-upload-release.py upload --token <github-token> --release X.Y.Z-rcN --files <release_files>
+
+Only upload artifacts by hand that the automated pipeline does not upload (see
+the table in :ref:`automated-release-tasks`), such as the signed source
+tarballs and binaries built by release testers.  Re-uploading an asset that CI
+already attached to the release fails or creates a conflicting copy.
+
+.. _automated-release-tasks:
+
+Automated Release Tasks
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Pushing any tag that starts with ``llvmorg-`` to ``llvm/llvm-project`` runs the
+`Release Task
+<https://github.com/llvm/llvm-project/actions/workflows/release-tasks.yml>`_
+workflow (``.github/workflows/release-tasks.yml``).  The workflow only runs in
+the ``llvm/llvm-project`` repository, so it does nothing in forks.  Its jobs
+are:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 50 30
+
+   * - Job
+     - What it does
+     - Secrets / environment
+   * - ``validate-tag``
+     - Checks that the tag matches ``llvmorg-X.Y.Z`` or ``llvmorg-X.Y.Z-rcN``
+       and derives the release version ``X.Y.Z[-rcN]`` from it.  If the tag
+       does not match, every other job is skipped.
+     - None.
+   * - ``release-create``
+     - Runs ``github-upload-release.py create`` to create the GitHub release
+       for the tag.  Release candidates are marked as pre-releases.  The
+       release notes body contains hidden (commented out) download links for
+       the common platforms.
+     - ``RELEASE_TASKS_USER_TOKEN``; ``github.actor`` must be a release
+       manager.
+   * - ``release-documentation``
+     - Calls ``release-documentation.yml``, which builds the Sphinx
+       documentation and stores it as the ``release-notes`` workflow artifact.
+       For final releases (not ``-rcN``) it also pushes the docs to the
+       ``llvmbot/www-releases`` fork and opens a pull request against
+       ``www-releases``.
+     - ``release`` environment, which supplies ``LLVMBOT_WWW_RELEASES_PUSH``
+       and ``WWW_RELEASES_TOKEN``.
+   * - ``release-doxygen``
+     - Calls ``release-doxygen.yml``, which builds the doxygen documentation.
+       For final releases it uploads the ``*doxygen*.tar.xz`` tarball to the
+       GitHub release.
+     - ``RELEASE_TASKS_USER_TOKEN``; ``github.actor`` must be a release
+       manager.
+   * - ``release-lit``
+     - Checks the actor's permissions, runs ``ninja check-lit``, removes the
+       ``dev`` suffix from the ``lit`` version, builds the package (stored as
+       the ``lit-X.Y.Z[-rcN]-release-binary`` workflow artifact) and then
+       publishes it to test.pypi.org and pypi.org.  **This happens for release
+       candidates too, and a PyPI upload cannot be undone or replaced.**
+     - ``pypi`` environment (PyPI trusted publishing via OIDC, so no API token
+       is stored in GitHub) and ``RELEASE_TASKS_USER_TOKEN``.
+   * - ``release-binaries``
+     - Calls ``release-binaries-all.yml``, which builds release packages on
+       ``ubuntu-22.04``, ``ubuntu-22.04-arm``, ``macos-14``, ``windows-2022``
+       and ``windows-11-arm``.  Each package is attested and uploaded to the
+       GitHub release together with its ``.jsonl`` attestation.
+     - ``RELEASE_TASKS_USER_TOKEN``; ``github.actor`` must be a release
+       manager.
+   * - ``release-sources``
+     - Calls ``release-sources.yml``, which creates the source tarballs with
+       ``export.sh``, attests them and stores them as the
+       ``llvmorg-X.Y.Z[-rcN]-sources`` workflow artifact.  It does **not**
+       upload them to the release; the Release Manager verifies, signs and
+       uploads them as described in `Tagging the LLVM Release Candidates`_.
+     - ``RELEASE_TASKS_USER_TOKEN`` (passed through; not used for an upload).
+   * - ``uncomment-download-links``
+     - Runs after ``release-binaries``, even if some builds failed.  It runs
+       ``github-upload-release.py uncomment_download_links``, which reveals
+       each hidden download link in the release notes once all the files it
+       links to are attached to the release.
+     - None (uses the workflow ``GITHUB_TOKEN``).
+
+Permissions and secrets
+-----------------------
+
+* ``RELEASE_TASKS_USER_TOKEN`` is a repository secret holding a token that can
+  read the membership of the ``llvm`` organization's teams.  It is passed
+  explicitly to the called workflows, because called workflows do not inherit
+  secrets.  If the token is missing or has expired, ``release-create``,
+  ``release-lit``, ``release-doxygen`` and the binary uploads fail at the
+  permission check.  See :doc:`AdminTasks` for how bot tokens are managed.
+* The user who pushed the tag (``github.actor``) must be a member of the
+  ``llvm-release-managers`` team.  ``github-upload-release.py`` checks this
+  with ``RELEASE_TASKS_USER_TOKEN``, and the check fails for anyone else.  You
+  can run the same check locally before tagging:
+
+  ::
+
+    $ github-upload-release.py --token <github-token> --user <your-github-username> --user-token <token-with-read:org> check-permissions
+
+* The ``pypi`` GitHub environment must stay configured as a trusted publisher
+  for the ``lit`` project on both pypi.org and test.pypi.org.  If the
+  environment has required reviewers, ``release-lit`` waits for approval
+  before it publishes.
+* The ``release`` GitHub environment holds the secrets that
+  ``release-documentation`` uses to push to ``www-releases``.
+
+Re-running tasks
+----------------
+
+``release-documentation.yml``, ``release-doxygen.yml``,
+``release-binaries-all.yml`` and ``release-sources.yml`` can also be started by
+hand from the GitHub Actions page (``workflow_dispatch``) with a
+``release-version`` input.  Use this to retry a single failed task instead of
+re-tagging.  ``release-lit`` cannot be started this way, because PyPI trusted
+publishing does not support called workflows.  If it fails before the PyPI
+upload, re-run the failed job from the ``Release Task`` run.  If it fails after
+the test.pypi.org upload, publish the ``lit`` artifact to pypi.org by hand.
 
 
 Build The Binary Distribution

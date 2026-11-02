@@ -10,10 +10,10 @@
 ; RUN: llvm-reduce --abort-on-invalid-reduction --delta-passes=instructions,instruction-flags --test %python --test-arg %p/Inputs/samesign-gates-instruction.py %s -o %t
 ; RUN: FileCheck --implicit-check-not=gated %s < %t
 
-; CHECK-LABEL: define i1 @samesign_gates_instruction(
+; CHECK-LABEL: define i1 @gated_by_samesign(
 ; CHECK-NEXT: %cmp = icmp ult i32 %a, 10
 ; CHECK-NEXT: ret i1 %cmp
-define i1 @samesign_gates_instruction(i32 %a) {
+define i1 @gated_by_samesign(i32 %a) {
   %gated = add i32 %a, 1
   %cmp = icmp samesign ult i32 %a, 10
   ret i1 %cmp

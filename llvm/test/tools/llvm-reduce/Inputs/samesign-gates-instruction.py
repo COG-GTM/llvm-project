@@ -11,7 +11,7 @@ for line in input:
         line = line[:i]
     if "icmp" in line:
         HasICmp = True
-    if "samesign" in line:
+    if "icmp samesign" in line:
         HasSameSign = True
     if "%gated" in line:
         HasGated = True

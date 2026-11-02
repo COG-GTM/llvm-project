@@ -42,7 +42,8 @@ using namespace __dfsan;
 Flags __dfsan::flags_data;
 
 // The size of TLS variables. These constants must be kept in sync with the ones
-// in DataFlowSanitizer.cpp.
+// in llvm/lib/Transforms/Instrumentation/DataFlowSanitizer.cpp;
+// compiler-rt/test/dfsan/tls_abi_size.c checks that they match.
 static const int kDFsanArgTlsSize = 800;
 static const int kDFsanRetvalTlsSize = 800;
 static const int kDFsanArgOriginTlsSize = 800;

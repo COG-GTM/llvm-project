@@ -498,6 +498,9 @@ int main(int argc, char **argv) {
   if (argc != 4)
     return EXIT_FAILURE;
 
+  // Validate the inputs before truncating the output.
+  auto Entries = loadDataFiles(argv[1], argv[2]);
+
   FILE *Out = fopen(argv[3], "w");
   if (!Out) {
     printf("Error creating output file.\n");
@@ -507,7 +510,6 @@ int main(int argc, char **argv) {
   Trie T;
   uint32_t NameCount = 0;
   std::size_t LongestName = 0;
-  auto Entries = loadDataFiles(argv[1], argv[2]);
   for (const std::pair<const char32_t, std::string> &Entry : Entries) {
     char32_t Codepoint = Entry.first;
     const std::string &Name = Entry.second;

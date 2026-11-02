@@ -644,7 +644,7 @@ ToolChain::getTargetAndModeFromProgramName(StringRef PN) {
 StringRef ToolChain::getDefaultUniversalArchName() const {
   // In universal driver terms, the arch name accepted by -arch isn't exactly
   // the same as the ones that appear in the triple. Roughly speaking, this is
-  // an inverse of the darwin::getArchTypeForDarwinArchName() function.
+  // an inverse of the darwin::getArchTypeForMachOArchName() function.
   switch (Triple.getArch()) {
   case llvm::Triple::aarch64: {
     if (getTriple().isArm64e())

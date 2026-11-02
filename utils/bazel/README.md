@@ -98,6 +98,35 @@ platform-specific are selected for in defines. Many are also hardcoded to the
 values currently used by all supported configurations. If there is a
 configuration you'd like to use that isn't supported, please send a patch.
 
+## LLDB
+
+LLDB's `include/lldb/Host/Config.h` is generated from
+`lldb/include/lldb/Host/Config.h.cmake` by a hand-maintained substitution map
+(`ConfigHeader` in `llvm-project-overlay/lldb/BUILD.bazel`). The
+`//llvm_configs:diff_lldb_Config.h.cmake` change-detector test fails whenever
+the template changes; when it does, update the substitution map and then copy
+the new template to `llvm_configs/lldb_Config.h.cmake`.
+
+The Bazel build differs from a default CMake build in that these optional LLDB
+features are always disabled, even when the dependency is available (CMake
+enables them automatically when it finds the dependency):
+
+| `Config.h` define | Bazel value | CMake default |
+| --- | --- | --- |
+| `LLDB_ENABLE_PYTHON` (and `LLDB_ENABLE_PYTHON_LIMITED_API`, `LLDB_EMBED_PYTHON_HOME`) | 0: no Python script interpreter | Auto (Python + SWIG) |
+| `LLDB_ENABLE_LUA` | 0: no Lua script interpreter | Auto (Lua + SWIG) |
+| `LLDB_ENABLE_LZMA` | 0 | Auto (liblzma) |
+| `LLDB_ENABLE_TREESITTER` | 0 | Auto (tree-sitter) |
+| `LLDB_ENABLE_LIBXML2` | 0 on Linux, 1 on macOS | Auto (libxml2) |
+| `LLVM_ENABLE_CURL` | 0 | `OFF` (`LLVM_ENABLE_CURL`) |
+| `CURSES_HAVE_NCURSES_CURSES_H` | 0 | Detected |
+| `LLDB_ENABLE_MTE` | 0 | On only on Apple hosts with `FEAT_MTE4` (runs the test suite under MTE) |
+
+Code behind these guards is not built or tested by the Bazel build. Curses and
+libedit are off by default on Linux and can be turned on with
+`--@llvm-project//lldb:enable_curses` and
+`--@llvm-project//lldb:enable_libedit`. On macOS they are always on.
+
 # Continuous Testing
 
 A [Buildkite pipeline](https://buildkite.com/llvm-project/upstream-bazel)

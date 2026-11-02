@@ -7,12 +7,12 @@ on:
   workflow_call:
     inputs:
       OffloadTest-branch:
-        description: 'Test Suite Branch'
+        description: 'llvm/offload-test-suite branch, tag, or SHA to test against'
         required: false
         default: 'main'
         type: string
       LLVM-ref:
-        description: 'LLVM Branch'
+        description: 'llvm-project ref (branch, tag, SHA, or refs/pull/N/merge) to build and test'
         required: false
         default: 'main'
         type: string
@@ -40,14 +40,14 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
-          ref: ${{ inputs.LLVM-branch }}
+          ref: ${{ inputs.LLVM-ref }}
           path: llvm-project
       - name: Checkout OffloadTest
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
           repository: llvm/offload-test-suite
-          ref: main
+          ref: ${{ inputs.OffloadTest-branch }}
           path: OffloadTest
       - name: Checkout Golden Images
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1

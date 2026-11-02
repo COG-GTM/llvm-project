@@ -34,6 +34,12 @@
 
 // Version of the Unicode Character Database the committed output is built from.
 static const char *const UnicodeVersion = "15.1.0";
+// A character first assigned in UnicodeVersion. UnicodeData.txt has no version
+// header, so its presence is how an older UnicodeData.txt is rejected. Update
+// it together with UnicodeVersion.
+static const char32_t NewestCodepoint = 0x31EF;
+static const char *const NewestName =
+    "IDEOGRAPHIC DESCRIPTION CHARACTER SUBTRACTION";
 
 static const llvm::StringRef Letters =
     " _-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -43,6 +49,7 @@ static const llvm::StringRef Letters =
 static std::unordered_multimap<char32_t, std::string>
 loadDataFiles(const std::string &NamesFile, const std::string &AliasesFile) {
   std::unordered_multimap<char32_t, std::string> CollectedCharacters;
+  bool HasNewestCharacter = false, HasAliasesVersion = false;
   auto FromFile = [&](const std::string &File, bool IsAliasFile = false) {
     std::ifstream InputFile(File);
     if (!InputFile) {
@@ -53,12 +60,15 @@ loadDataFiles(const std::string &NamesFile, const std::string &AliasesFile) {
       // NameAliases.txt starts with "# NameAliases-<version>.txt".
       llvm::StringRef Header(Line);
       if (IsAliasFile && Header.consume_front("# NameAliases-") &&
-          Header.consume_back(".txt") && Header != UnicodeVersion) {
-        fprintf(stderr,
-                "%s is from Unicode %s but UnicodeVersion is %s; update "
-                "UnicodeVersion in UnicodeNameMappingGenerator.cpp.\n",
-                File.c_str(), Header.str().c_str(), UnicodeVersion);
-        exit(EXIT_FAILURE);
+          Header.consume_back(".txt")) {
+        if (Header != UnicodeVersion) {
+          fprintf(stderr,
+                  "%s is from Unicode %s but UnicodeVersion is %s; update "
+                  "UnicodeVersion in UnicodeNameMappingGenerator.cpp.\n",
+                  File.c_str(), Header.str().c_str(), UnicodeVersion);
+          exit(EXIT_FAILURE);
+        }
+        HasAliasesVersion = true;
       }
       if (Line.empty() || !isxdigit(Line[0]))
         continue;
@@ -99,12 +109,29 @@ loadDataFiles(const std::string &NamesFile, const std::string &AliasesFile) {
         }
         CollectedCharacters.insert({CP, std::move(Name)});
       };
+      if (!IsAliasFile && CodePoint == NewestCodepoint && Name == NewestName)
+        HasNewestCharacter = true;
       InsertUnique(CodePoint, std::move(Name));
     }
   };
 
   FromFile(NamesFile);
+  if (!HasNewestCharacter) {
+    fprintf(stderr,
+            "%s does not list U+%04X %s, which was added in Unicode %s; use "
+            "the UnicodeData.txt of Unicode %s.\n",
+            NamesFile.c_str(), static_cast<unsigned int>(NewestCodepoint),
+            NewestName, UnicodeVersion, UnicodeVersion);
+    exit(EXIT_FAILURE);
+  }
   FromFile(AliasesFile, true);
+  if (!HasAliasesVersion) {
+    fprintf(stderr,
+            "%s lacks the \"# NameAliases-%s.txt\" header; use the "
+            "NameAliases.txt of Unicode %s.\n",
+            AliasesFile.c_str(), UnicodeVersion, UnicodeVersion);
+    exit(EXIT_FAILURE);
+  }
   return CollectedCharacters;
 }
 

@@ -235,6 +235,13 @@ jobs:
         run: |
           source <(git diff --name-only HEAD~1...HEAD | python3 .ci/compute_projects.py)
 
+          echo "Projects excluded on this platform: ${excluded_projects}"
+          # This job does not generate a test report, so always surface
+          # exclusions in the job summary.
+          if [[ "${excluded_projects}" != "" ]]; then
+            echo "Excluded from pre-merge CI on this platform: ${excluded_projects}. See https://llvm.org/docs/GitHub.html#projects-not-tested-by-pre-merge-ci" >> $GITHUB_STEP_SUMMARY
+          fi
+
           if [[ "${projects_to_build}" == "" ]]; then
             echo "No projects to build"
             exit 0
@@ -242,7 +249,6 @@ jobs:
 
           echo "Building projects: ${projects_to_build}"
           echo "Running project checks targets: ${project_check_targets}"
-          echo "Projects excluded on this platform: ${excluded_projects}"
 
           # -DLLVM_DISABLE_ASSEMBLY_FILES=ON is for
           # https://github.com/llvm/llvm-project/issues/81967

@@ -229,7 +229,8 @@ MPFRNumber MPFRNumber::exp2() const {
 }
 
 MPFRNumber MPFRNumber::exp2m1() const {
-  // TODO: Only use mpfr_exp2m1 once CI and buildbots get MPFR >= 4.2.0.
+  // TODO: Only use mpfr_exp2m1 once all buildbots get MPFR >= 4.2.0.
+  // Pre-commit CI already does (see LLVM_LIBC_MPFR_STRICT_VERSION).
 #if MPFR_VERSION >= MPFR_VERSION_NUM(4, 2, 0)
   MPFRNumber result(*this);
   mpfr_exp2m1(result.value, value, mpfr_rounding);
@@ -264,7 +265,8 @@ MPFRNumber MPFRNumber::exp10() const {
 }
 
 MPFRNumber MPFRNumber::exp10m1() const {
-  // TODO: Only use mpfr_exp10m1 once CI and buildbots get MPFR >= 4.2.0.
+  // TODO: Only use mpfr_exp10m1 once all buildbots get MPFR >= 4.2.0.
+  // Pre-commit CI already does (see LLVM_LIBC_MPFR_STRICT_VERSION).
 #if MPFR_VERSION >= MPFR_VERSION_NUM(4, 2, 0)
   MPFRNumber result(*this);
   mpfr_exp10m1(result.value, value, mpfr_rounding);
@@ -336,7 +338,8 @@ MPFRNumber MPFRNumber::log2() const {
 }
 
 MPFRNumber MPFRNumber::log2p1() const {
-  // TODO: Only use mpfr_log2p1 once CI and buildbots get MPFR >= 4.2.0.
+  // TODO: Only use mpfr_log2p1 once all buildbots get MPFR >= 4.2.0.
+  // Pre-commit CI already does (see LLVM_LIBC_MPFR_STRICT_VERSION).
 #if MPFR_VERSION >= MPFR_VERSION_NUM(4, 2, 0)
   MPFRNumber result(*this);
   mpfr_log2p1(result.value, value, mpfr_rounding);
@@ -358,7 +361,8 @@ MPFRNumber MPFRNumber::log10() const {
 }
 
 MPFRNumber MPFRNumber::log10p1() const {
-  // TODO: Only use mpfr_log10p1 once CI and buildbots get MPFR >= 4.2.0.
+  // TODO: Only use mpfr_log10p1 once all buildbots get MPFR >= 4.2.0.
+  // Pre-commit CI already does (see LLVM_LIBC_MPFR_STRICT_VERSION).
 #if MPFR_VERSION >= MPFR_VERSION_NUM(4, 2, 0)
   MPFRNumber result(*this);
   mpfr_log10p1(result.value, value, mpfr_rounding);

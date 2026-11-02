@@ -36,6 +36,8 @@ Implementation Requirements / Goals
   - To test for correctness, we compare the outputs with other correctly rounded
     multiple-precision math libraries such as the `GNU MPFR library <https://www.mpfr.org/>`_
     or the `CORE-MATH library <https://core-math.gitlabpages.inria.fr/>`_.
+    MPFR 4.2.0 or newer is required for correctly rounded reference results
+    for every function (see :ref:`build_and_test`).
 
 * Our next requirement is that the outputs are consistent across all platforms.
   Notice that the consistency requirement will be satisfied automatically if the

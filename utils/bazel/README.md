@@ -110,6 +110,50 @@ subscribe, it is highly recommended that you set up email filters or some other
 mechanism to not flood your inbox. More sophisticated notifications, e.g. only
 on status change or routed based on blamelist are TODO (contributions welcome).
 
+# Premerge CI
+
+Pull requests and pushes to `main` that touch `utils/bazel/**` or
+[bazel-checks.yml](../../.github/workflows/bazel-checks.yml) run two GitHub
+Actions jobs (only in `llvm/llvm-project`, not in forks):
+
+* **Buildifier** (`ubuntu-24.04`): checks the formatting of every `BUILD`,
+  `*.bazel` and `*.bzl` file under `utils/bazel` with buildifier v8.2.1. To
+  reproduce locally, from the repository root:
+  ```
+  buildifier --mode=check $(find ./utils/bazel -name '*BUILD*' -o -name '*bzl' -o -name '*.bazel')
+  ```
+  Use `--mode=fix` instead of `--mode=check` to apply the fixes.
+* **Bazel Build/Test**: builds and tests `@llvm-project//... //...` with
+  `--config=ci`. See the `ci` section of [.bazelrc](./.bazelrc) for what it
+  sets: `-O1`, `--config=generic_clang` (so `clang` and `lld` are needed),
+  the system `mpfr` and `pfm` libraries, skipping targets tagged
+  `nobuildkite`, and `--keep_going`.
+
+To reproduce the Bazel Build/Test job locally on Debian/Ubuntu, install the
+system packages the job installs, plus clang and lld:
+```
+sudo apt-get install -y libmpfr-dev libpfm4-dev m4 libedit-dev clang lld
+```
+Install [bazelisk](https://github.com/bazelbuild/bazelisk) (CI uses v1.27.0),
+then run the job's command without the remote cache flags:
+```
+cd utils/bazel
+bazelisk test --config=ci @llvm-project//... //...
+```
+`--config=ci` puts the sandbox on `/dev/shm`. If your ramdisk is too small, add
+`--sandbox_base=""` (as CI does) to use the default location. Building every
+target takes a long time. To debug one failure, replace
+`@llvm-project//... //...` with the failing target.
+
+The job runs on the self-hosted `llvm-premerge-cluster-us-central` runner group
+(`llvm-premerge-linux-runners` label). It runs only on US Central workers
+because the cache buckets are per cluster. It reads from and writes to a Google
+Cloud Storage remote cache (`--remote_cache=https://storage.googleapis.com/$CACHE_GCS_BUCKET-bazel`
+with `--google_default_credentials`). `CACHE_GCS_BUCKET` is set in the runner
+environment by the premerge cluster. It is not a repository secret or variable,
+so contributors cannot use it, and the build does not need it to produce the
+same results.
+
 # Usage in Downstream Projects
 
 To use in dependent projects using Bazel, you can import LLVM and then use the

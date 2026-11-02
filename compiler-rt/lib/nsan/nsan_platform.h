@@ -59,8 +59,11 @@ namespace __nsan {
 // memory. See getShadowAddrFor().
 // The process is similar for the shadow types.
 
-// The ratio of app to shadow memory.
-enum { kShadowScale = 2 };
+// kShadowScale (the ratio of app to shadow memory), kMaxVectorWidth,
+// kMaxNumArgs and kMaxShadowTypeSizeBytes are shared with the instrumentation
+// pass.
+#define NSAN_ABI_CONSTANT(Name, Value) enum { k##Name = Value };
+#include "nsan_abi.inc"
 
 // The original value type of a byte in app memory. Uses LLVM terminology:
 // https://llvm.org/docs/LangRef.html#floating-point-types

@@ -134,11 +134,10 @@ static cl::opt<bool> ClPropagateNonFTConstStoresAsFT(
 constexpr StringLiteral kNsanModuleCtorName("nsan.module_ctor");
 constexpr StringLiteral kNsanInitName("__nsan_init");
 
-// The following values must be kept in sync with the runtime.
-constexpr int kShadowScale = 2;
-constexpr int kMaxVectorWidth = 8;
-constexpr int kMaxNumArgs = 128;
-constexpr int kMaxShadowTypeSizeBytes = 16; // fp128
+// kShadowScale, kMaxVectorWidth, kMaxNumArgs and kMaxShadowTypeSizeBytes are
+// shared with the runtime.
+#define NSAN_ABI_CONSTANT(Name, Value) constexpr int k##Name = Value;
+#include "llvm/Transforms/Instrumentation/NumericalStabilitySanitizerABI.inc"
 
 namespace {
 
@@ -384,6 +383,9 @@ public:
     switch (CheckTy) {
     case kUnknown:
       llvm_unreachable("unknown type");
+    case kUser:
+    case kFcmp:
+      llvm_unreachable("check type is only reported by the runtime");
     case kRet:
     case kInsert:
       return ConstantInt::get(IntptrTy, 0);
@@ -397,15 +399,10 @@ public:
   }
 
 private:
-  // Must be kept in sync with the runtime,
-  // see compiler-rt/lib/nsan/nsan_stats.h
+  // Shared with the runtime.
   enum CheckType {
-    kUnknown = 0,
-    kRet,
-    kArg,
-    kLoad,
-    kStore,
-    kInsert,
+#define NSAN_CHECK_TYPE(Name) k##Name,
+#include "llvm/Transforms/Instrumentation/NumericalStabilitySanitizerABI.inc"
   };
   explicit CheckLoc(CheckType CheckTy) : CheckTy(CheckTy) {}
 
@@ -885,9 +882,9 @@ void NumericalStabilitySanitizer::populateShadowStack(
 // Internal part of emitCheck(). Returns a value that indicates whether
 // computation should continue with the shadow or resume by re-fextending the
 // value.
-enum class ContinuationType { // Keep in sync with runtime.
-  ContinueWithShadow = 0,
-  ResumeFromValue = 1,
+enum class ContinuationType { // Shared with the runtime.
+#define NSAN_CONTINUATION_TYPE(Name, Value) Name = Value,
+#include "llvm/Transforms/Instrumentation/NumericalStabilitySanitizerABI.inc"
 };
 
 Value *NumericalStabilitySanitizer::emitCheckInternal(Value *V, Value *ShadowV,

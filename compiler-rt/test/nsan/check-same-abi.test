@@ -1,0 +1,7 @@
+; Test that the NSan ABI definitions shared by the instrumentation pass and the
+; runtime are identical copies of each other.
+;
+; NOTE: if this test fails, please make sure the files are identical
+; copies of each other.
+;
+; RUN: diff %crt_src/lib/nsan/nsan_abi.inc %llvm_src/include/llvm/Transforms/Instrumentation/NumericalStabilitySanitizerABI.inc

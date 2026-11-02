@@ -19,6 +19,7 @@ set(NSAN_PREINIT_SOURCES
 
 set(NSAN_HEADERS
   nsan.h
+  nsan_abi.inc
   nsan_flags.h
   nsan_flags.inc
   nsan_platform.h

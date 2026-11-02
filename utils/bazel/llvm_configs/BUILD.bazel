@@ -28,3 +28,9 @@ diff_test(
     file1 = "@llvm-project//llvm:include/llvm/Config/abi-breaking.h.cmake",
     file2 = "abi-breaking.h.cmake",
 )
+
+diff_test(
+    name = "diff_lldb_Config.h.cmake",
+    file1 = "@llvm-project//lldb:include/lldb/Host/Config.h.cmake",
+    file2 = "lldb_Config.h.cmake",
+)

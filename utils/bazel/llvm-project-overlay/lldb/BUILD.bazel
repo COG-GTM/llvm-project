@@ -22,6 +22,7 @@ licenses(["notice"])
 
 exports_files([
     "LICENSE.TXT",
+    "include/lldb/Host/Config.h.cmake",
     "source/API/liblldb-private.exports",
     "source/API/liblldb.exports",
 ])
@@ -106,6 +107,9 @@ cc_library(
     deps = ["//clang:basic"],
 )
 
+# Keep in sync with Config.h.cmake: utils/bazel/llvm_configs has a diff_test
+# against a copy of the template, and utils/bazel/README.md lists the features
+# that are force-disabled here.
 expand_template(
     name = "ConfigHeader",
     out = "include/lldb/Host/Config.h",
@@ -134,7 +138,6 @@ expand_template(
 
         # Unsupported
         "#cmakedefine01 CURSES_HAVE_NCURSES_CURSES_H": "#define CURSES_HAVE_NCURSES_CURSES_H 0",
-        "#cmakedefine01 LLDB_ENABLE_FBSDVMCORE": "#define LLDB_ENABLE_FBSDVMCORE 0",
 
         # TODO: treesitter support
         "#cmakedefine01 LLDB_ENABLE_TREESITTER": "#define LLDB_ENABLE_TREESITTER 0",
@@ -144,7 +147,6 @@ expand_template(
 
         # Defaults that could be configurable if needed
         "#cmakedefine01 LLDB_ENABLE_POSIX": "#define LLDB_ENABLE_POSIX 1",
-        "#cmakedefine01 LLDB_ENABLE_PROTOCOL_SERVERS": "#define LLDB_ENABLE_PROTOCOL_SERVERS 1",
         "#cmakedefine LLDB_GLOBAL_INIT_DIRECTORY R\"(${LLDB_GLOBAL_INIT_DIRECTORY})\"": "#define LLDB_GLOBAL_INIT_DIRECTORY \"\"",
         "${LLDB_INSTALL_LIBDIR_BASENAME}": "lib",
         "${LLDB_BUG_REPORT_URL}": "",

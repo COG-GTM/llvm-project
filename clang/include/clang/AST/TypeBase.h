@@ -332,7 +332,8 @@ class Qualifiers {
 public:
   Qualifiers() = default;
   enum TQ : uint64_t {
-    // NOTE: These flags must be kept in sync with DeclSpec::TQ.
+    // NOTE: These flags must be kept in sync with DeclSpec::TQ (checked by a
+    // static_assert in DeclSpec.cpp).
     Const = 0x1,
     Restrict = 0x2,
     Volatile = 0x4,

@@ -181,10 +181,17 @@ def sync_unittests():
     return changed
 
 
+def strip_comments(path):
+    """Returns the contents of a GN or CMake file without # comments."""
+    # A comment starts at the first # that is not inside a "..." string.
+    comment_re = re.compile(r'^((?:[^"#\n]|"(?:[^"\\\n]|\\.)*")*)#.*$', re.MULTILINE)
+    return comment_re.sub(r"\1", open(path).read())
+
+
 def sync_targets():
     gn_target_dir = "llvm/utils/gn/secondary/llvm/lib/Target"
-    cmake_text = open("llvm/CMakeLists.txt").read()
-    gn_text = open(os.path.join(gn_target_dir, "targets.gni")).read()
+    cmake_text = strip_comments("llvm/CMakeLists.txt")
+    gn_text = strip_comments(os.path.join(gn_target_dir, "targets.gni"))
 
     def cmake_list(name):
         m = re.search(r"^set\(%s\s([^)]*)\)" % name, cmake_text, re.MULTILINE)
@@ -273,7 +280,7 @@ def sync_targets():
         ("targets_with_mcas.gni", "==", has_dir("llvm/lib/Target/%s/MCA")),
     ]
     for gni, op, has_capability in capabilities:
-        text = open(os.path.join(gn_target_dir, gni)).read()
+        text = strip_comments(os.path.join(gn_target_dir, gni))
         named = set(re.findall(r'target %s "([^"]+)"' % op, text))
         for t in sorted(named - all_cmake):
             problems.append("%s names %s, which is not a CMake target" % (gni, t))

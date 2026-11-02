@@ -75,7 +75,7 @@ jobs:
           path: docs-build/html-export/
 
       - name: Clone www-releases
-        if: env.upload
+        if: env.upload == 'true'
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           repository: ${{ github.repository_owner }}/www-releases
@@ -85,7 +85,7 @@ jobs:
           persist-credentials: false
 
       - name: Upload Release Notes
-        if: env.upload
+        if: env.upload == 'true'
         env:
           PUSH_TOKEN: ${{ secrets.LLVMBOT_WWW_RELEASES_PUSH }}
           GH_TOKEN: ${{ secrets.WWW_RELEASES_TOKEN }}

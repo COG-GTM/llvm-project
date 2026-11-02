@@ -7,8 +7,11 @@
 #
 # Configure:
 #   cmake -G Ninja -DCMAKE_BUILD_TYPE=Release
-#       -C <llvm_src_root>/clang/cmake/caches/VectorEngine.cmake
-#       <llvm_src_root>/llvm-project/llvm
+#       -C <llvm_project_root>/clang/cmake/caches/VectorEngine.cmake
+#       <llvm_project_root>/llvm
+#
+#   where <llvm_project_root> is the llvm-project checkout itself (the
+#   directory that contains llvm/ and clang/).
 # Build:
 #   ninja
 #

@@ -26,8 +26,11 @@
 #       -DCMAKE_CXX_FLAGS="-D__OPTIMIZE__" ^
 #       -DREMOTE_TEST_HOST="<hostname>" ^
 #       -DREMOTE_TEST_USER="<ssh_user_name>" ^
-#       -C<llvm_src_root>/llvm-project/clang/cmake/caches/CrossWinToARMLinux.cmake ^
-#       <llvm_src_root>/llvm-project/llvm
+#       -C<llvm_project_root>/clang/cmake/caches/CrossWinToARMLinux.cmake ^
+#       <llvm_project_root>/llvm
+#
+#  where <llvm_project_root> is the llvm-project checkout itself (the directory
+#  that contains llvm/, clang/ and libcxx/).
 # Build:
 #  cmake --build . --target install
 # Tests:
@@ -38,6 +41,12 @@
 #  cmake --build . --target check-cxxabi-<TOOLCHAIN_TARGET_TRIPLE>
 #  cmake --build . --target check-unwind-<TOOLCHAIN_TARGET_TRIPLE>
 #  cmake --build . --target check-cxx-<TOOLCHAIN_TARGET_TRIPLE>
+#
+#  The runtime check-*-<TOOLCHAIN_TARGET_TRIPLE> targets run the test binaries
+#  on the ARM Linux target over SSH (libcxx/utils/ssh.py and
+#  llvm/utils/remote-exec.py as REMOTE_TEST_USER@REMOTE_TEST_HOST). They need a
+#  running, ssh-reachable target machine and passwordless (key-based) SSH/SCP
+#  access to it from the build host.
 # (another way to execute the tests)
 # python bin/llvm-lit.py -v --threads=32 runtimes/runtimes-<TOOLCHAIN_TARGET_TRIPLE>bins/libunwind/test  2>&1 | tee libunwind-tests.log
 # python bin/llvm-lit.py -v --threads=32 runtimes/runtimes-<TOOLCHAIN_TARGET_TRIPLE>-bins/libcxxabi/test 2>&1 | tee libcxxabi-tests.log

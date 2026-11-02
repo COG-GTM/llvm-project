@@ -28,8 +28,11 @@
 #       -DCMAKE_CXX_FLAGS="-D__OPTIMIZE__" \
 #       -DREMOTE_TEST_HOST="<hostname>" \
 #       -DREMOTE_TEST_USER="<ssh_user_name>" \
-#       -C <llvm_src_root>/llvm-project/clang/cmake/caches/cross-linux-toolchain.cmake \
-#       <llvm_src_root>/llvm-project/llvm
+#       -C <llvm_project_root>/clang/cmake/caches/cross-linux-toolchain.cmake \
+#       <llvm_project_root>/llvm
+#
+#  where <llvm_project_root> is the llvm-project checkout itself (the directory
+#  that contains llvm/, clang/ and libcxx/).
 # Build:
 #  cmake --build . --target install
 # Tests:
@@ -40,6 +43,17 @@
 #  cmake --build . --target check-cxxabi-<TOOLCHAIN_TARGET_TRIPLE>
 #  cmake --build . --target check-unwind-<TOOLCHAIN_TARGET_TRIPLE>
 #  cmake --build . --target check-cxx-<TOOLCHAIN_TARGET_TRIPLE>
+#
+#  check-llvm, check-clang and check-lld run on the build host. The runtime
+#  check-*-<TOOLCHAIN_TARGET_TRIPLE> targets run the test binaries on a target
+#  machine over SSH: libcxx, libcxxabi and libunwind use
+#  libcxx/utils/ssh.py (see DEFAULT_TEST_EXECUTOR) and compiler-rt uses
+#  llvm/utils/remote-exec.py, both as REMOTE_TEST_USER@REMOTE_TEST_HOST.
+#  These require a running, ssh-reachable <TOOLCHAIN_TARGET_TRIPLE> machine and
+#  passwordless (key-based) SSH/SCP access to it from the build host; ssh.py
+#  uses `ssh -oBatchMode=yes`, so password prompts make the tests fail.
+#  Without REMOTE_TEST_HOST no remote executor is configured and the runtime
+#  tests try to run the target binaries on the build host.
 #
 # The custom parameters:
 #   TOOLCHAIN_TARGET_TRIPLE (default: aarch64-unknown-linux-gnu)  - a list of target triples to support
@@ -52,6 +66,9 @@
 #   TOOLCHAIN_SHARED_LIBS (default: OFF)
 #   TOOLCHAIN_STATIC_LIBS (default: NOT DEFINED)
 #   TOOLCHAIN_USE_STATIC_LIBS (default: ON)
+#   REMOTE_TEST_HOST                        - ssh host of the target machine for the runtime check-* targets
+#   REMOTE_TEST_USER                        - ssh user on REMOTE_TEST_HOST (passwordless/key-based login)
+#   DEFAULT_TEST_EXECUTOR                   - override the libcxx/libcxxabi/libunwind test executor
 #
 
 

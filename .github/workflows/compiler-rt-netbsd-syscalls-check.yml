@@ -1,0 +1,38 @@
+name: "Check NetBSD syscall hooks"
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/compiler-rt-netbsd-syscalls-check.yml'
+      - 'compiler-rt/utils/generate_netbsd_syscalls.awk'
+      - 'compiler-rt/utils/check_netbsd_syscalls.py'
+      - 'compiler-rt/include/sanitizer/netbsd_syscall_hooks.h'
+      - 'compiler-rt/lib/sanitizer_common/sanitizer_syscalls_netbsd.inc'
+  pull_request:
+    paths:
+      - '.github/workflows/compiler-rt-netbsd-syscalls-check.yml'
+      - 'compiler-rt/utils/generate_netbsd_syscalls.awk'
+      - 'compiler-rt/utils/check_netbsd_syscalls.py'
+      - 'compiler-rt/include/sanitizer/netbsd_syscall_hooks.h'
+      - 'compiler-rt/lib/sanitizer_common/sanitizer_syscalls_netbsd.inc'
+
+jobs:
+  check:
+    name: "Generated NetBSD syscall hooks are consistent"
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fetch LLVM sources
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            compiler-rt/utils
+            compiler-rt/include/sanitizer
+            compiler-rt/lib/sanitizer_common
+      - name: Check header, .inc and generator agree
+        run: python3 compiler-rt/utils/check_netbsd_syscalls.py

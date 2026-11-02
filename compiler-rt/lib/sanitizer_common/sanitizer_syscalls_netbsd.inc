@@ -41,7 +41,10 @@
 //
 // DO NOT EDIT! THIS FILE HAS BEEN GENERATED!
 //
-// Generated with: generate_netbsd_syscalls.awk
+// Generated with: compiler-rt/utils/generate_netbsd_syscalls.awk
+// Regenerate with (from compiler-rt/utils, on the newest NetBSD):
+//   ./generate_netbsd_syscalls.awk /usr/src/sys/kern/syscalls.master
+// Verify with: python3 compiler-rt/utils/check_netbsd_syscalls.py
 // Generated date: 2020-09-10
 // Generated from: syscalls.master,v 1.306 2020/08/14 00:53:16 riastradh Exp
 //

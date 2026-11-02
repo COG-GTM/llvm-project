@@ -140,14 +140,6 @@ OPTIONS
 
  Alias for --arch
 
-.. option:: --capture-path <filename>
-
- Tells the debugger to use the given filename for the reproducer.
-
-.. option:: --capture
-
- Tells the debugger to capture a reproducer.
-
 .. option:: --core <filename>
 
  Tells the debugger to use the full path to <filename> as the core file.
@@ -155,14 +147,6 @@ OPTIONS
 .. option:: -c <value>
 
  Alias for --core
-
-.. option:: --debug
-
- Tells the debugger to print out extra information for debugging itself.
-
-.. option:: -d
-
- Alias for --debug
 
 .. option:: --editor
 
@@ -192,10 +176,6 @@ OPTIONS
 
  Do not use colors.
 
-.. option:: --replay <filename>
-
- Tells the debugger to replay a reproducer from <filename>.
-
 .. option:: --version
 
  Prints out the current version number of the LLDB debugger.
@@ -206,7 +186,7 @@ OPTIONS
 
 .. option:: -X
 
- Alias for --no-use-color
+ Alias for --no-use-colors
 
 REPL
 ----
@@ -223,9 +203,17 @@ REPL
 
  Runs lldb in REPL mode with a stub process with the given flags.
 
+.. option:: --repl
+
+ Runs lldb in REPL mode with a stub process.
+
 .. option:: -R <value>
 
  Alias for --repl-language
+
+.. option:: -r
+
+ Alias for --repl
 
 SCRIPTING
 ---------

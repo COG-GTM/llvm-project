@@ -8,12 +8,16 @@ on:
     paths:
       - '.github/workflows/bazel-checks.yml'
       - 'utils/bazel/**'
+      - 'llvm/CMakeLists.txt'
+      - 'cmake/Modules/LLVMVersion.cmake'
     branches:
       - main
   pull_request:
     paths:
       - '.github/workflows/bazel-checks.yml'
       - 'utils/bazel/**'
+      - 'llvm/CMakeLists.txt'
+      - 'cmake/Modules/LLVMVersion.cmake'
 
 jobs:
   buildifier:

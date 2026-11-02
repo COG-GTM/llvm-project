@@ -413,6 +413,59 @@ ADDITIONAL OPTIONS
 
  Pass failing tests to functions in the ``lit_config.test_updaters`` list to
  check whether any of them know how to update the test to make it pass.
+ Test updaters only run with lit's internal shell, so this option has no
+ effect in suites that use an external shell (for example when
+ ``LIT_USE_INTERNAL_SHELL=0`` is set, see :ref:`lit-environment-variables`).
+
+.. _lit-environment-variables:
+
+ENVIRONMENT VARIABLES
+---------------------
+
+:program:`lit` reads the following environment variables:
+
+``LIT_OPTS``
+ Additional command-line options, parsed after the command line.
+
+``LIT_FILTER``, ``LIT_FILTER_OUT``
+ Equivalent to :option:`--filter` and :option:`--filter-out`.
+
+``LIT_XFAIL``, ``LIT_XFAIL_NOT``
+ Equivalent to :option:`--xfail` and :option:`--xfail-not`.
+
+``LIT_NUM_SHARDS``, ``LIT_RUN_SHARD``
+ Equivalent to :option:`--num-shards` and :option:`--run-shard`.
+
+The following variables are read by the LLVM test suite configuration
+(``lit.llvm.llvm_config`` and the ``lit.cfg.py`` files of LLVM subprojects)
+rather than by :program:`lit` itself. They change how tests run, so unset them
+or set them identically when comparing results between machines or with CI.
+
+``LIT_USE_INTERNAL_SHELL``
+ Selects how ``RUN:`` lines are executed. A true value (``1``, ``true``,
+ ``on``, ``yes``) uses lit's internal shell; a false value (``0``, ``false``,
+ ``off``, ``no``) runs them with an external shell (``bash`` if found,
+ otherwise ``/bin/sh``). Any other non-empty value is an error. When the
+ variable is unset or empty, the suite's default is used: the internal shell
+ for ``llvm``, ``clang``, ``clang-tools-extra``, ``mlir``, ``flang``,
+ ``flang-rt``, ``lld``, ``lldb`` (Shell tests), ``bolt``, ``polly`` and
+ ``compiler-rt``. ``compiler-rt`` treats only the exact value ``0`` as false.
+ The same variable also sets ``llvm_config.use_lit_shell``, which otherwise
+ defaults to true only on Windows or when :option:`--update-tests` is passed.
+ :option:`--update-tests` does not work with the external shell; in that case
+ ``lit.llvm.llvm_config`` prints
+ ``note: --update-tests is not supported when using external shell``.
+
+``LIT_CLANG_STD_GROUP``
+ An integer (default ``0``) that selects the C++ standard used by the
+ ``%std_cxxNN-MM`` and ``%std_cxxNN-`` substitutions defined by
+ ``llvm_config.use_clang()``. Each substitution expands to a single
+ ``-std=c++XX`` flag chosen from the standards in its range (98, 11, 14, 17,
+ 20, 2b; an open upper bound means 2b). ``0`` picks the newest standard in the
+ range, ``1`` the next older one, and so on, wrapping around after the oldest.
+ For example, ``%std_cxx11-14`` expands to ``-std=c++14`` with ``0``,
+ ``-std=c++11`` with ``1`` and ``-std=c++14`` again with ``2``. Running a suite
+ once per group value exercises every standard that a test supports.
 
 EXIT STATUS
 -----------

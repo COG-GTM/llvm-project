@@ -186,6 +186,38 @@ environment. Under Windows, install Python for all users and then run
 For more information on using the :program:`lit` tool, see ``llvm-lit --help``
 or the :doc:`lit man page <CommandGuide/lit>`.
 
+NVPTX tests and ``ptxas``
+-------------------------
+
+Many NVPTX tests in ``llvm/test/CodeGen/NVPTX`` and
+``llvm/test/DebugInfo/NVPTX`` have extra ``%if ptxas`` RUN lines that check
+the emitted PTX with ``ptxas``, the PTX assembler from the
+`CUDA Toolkit <https://developer.nvidia.com/cuda-toolkit>`_. These RUN lines
+only run when lit finds ``ptxas``. Otherwise they are skipped, and lit prints
+a note when it runs NVPTX tests.
+
+When the NVPTX target is built, CMake looks for ``ptxas`` on ``PATH``, in
+``$CUDA_PATH/bin`` and ``$CUDA_HOME/bin``, and in ``/usr/local/cuda/bin``.
+There are two ways to choose a ``ptxas`` yourself:
+
+* Configure with ``-DPTXAS_EXECUTABLE=<path to ptxas>``. Use
+  ``-DPTXAS_EXECUTABLE=OFF`` to turn the checks off.
+* Set the ``LLVM_PTXAS_EXECUTABLE`` environment variable when running lit.
+  This overrides the CMake setting.
+
+.. code-block:: bash
+
+    % LLVM_PTXAS_EXECUTABLE=/usr/local/cuda/bin/ptxas \
+        llvm-lit <path to llvm-project>/llvm/test/CodeGen/NVPTX
+
+When ``ptxas`` is found, lit adds the ``ptxas`` feature. It also adds
+``ptxas-<major>.<minor>`` for the ``ptxas`` version,
+``ptxas-isa-<major>.<minor>`` for each supported PTX ISA version,
+``ptxas-sm_<N>`` for each supported GPU architecture, and ``ptxas-ptr32`` if
+32-bit addressing is supported. Tests use these features to skip checks that
+this ``ptxas`` cannot handle. They also get the ``%ptxas`` and
+``%ptxas-verify`` substitutions.
+
 Debugging Information tests
 ---------------------------
 

@@ -33,6 +33,23 @@ llvm_canonicalize_cmake_booleans(
   LLVM_ENABLE_ONDISK_CAS
   )
 
+# ptxas from the CUDA Toolkit enables the extra "%if ptxas" verification in
+# NVPTX tests. Pass -DPTXAS_EXECUTABLE=<path> to pick one, or
+# -DPTXAS_EXECUTABLE=OFF to disable it.
+if("NVPTX" IN_LIST LLVM_TARGETS_TO_BUILD)
+  find_program(PTXAS_EXECUTABLE
+    NAMES ptxas
+    HINTS ENV CUDA_PATH ENV CUDA_HOME
+    PATHS /usr/local/cuda
+    PATH_SUFFIXES bin
+    DOC "ptxas used to verify the PTX emitted by the NVPTX regression tests")
+endif()
+if(PTXAS_EXECUTABLE)
+  set(LLVM_TEST_PTXAS_EXECUTABLE "${PTXAS_EXECUTABLE}")
+else()
+  set(LLVM_TEST_PTXAS_EXECUTABLE "")
+endif()
+
 configure_lit_site_cfg(
   ${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.py.in
   ${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg.py

@@ -1068,11 +1068,35 @@ The llvm lit configuration allows some things to be customized with user options
 
     % llvm-lit "-Dllc=llc -verify-machineinstrs"
 
+    If ``LLVM_ENABLE_MACHINE_VERIFIER=1`` is set (see below), it also applies to
+    an ``llc`` command given with ``-Dllc=...``.
+
 ``run_long_tests``
     Enable the execution of long running tests.
 
 ``llvm_site_config``
     Load the specified lit configuration instead of the default one.
+
+Environment variables
+---------------------
+
+The llvm lit configuration also reads some environment variables at test time.
+They are not CMake options, and changing them does not require a rebuild:
+
+``LLVM_ENABLE_MACHINE_VERIFIER``
+    When set to exactly ``1``, ``-verify-machineinstrs`` is appended to every
+    ``llc`` substitution (any ``llc`` resolved through ``FindTool`` in
+    ``llvm/utils/lit/lit/llvm/subst.py``). This runs the MachineInstr verifier
+    after every codegen pass in all ``llc`` ``RUN:`` lines. It is meant for
+    configurations, such as build bots, that check all codegen tests for
+    invalid machine code. Tests that pass without it can fail with
+    verifier errors when it is set. Any other value, or leaving it unset, has
+    no effect. Example:
+
+    % LLVM_ENABLE_MACHINE_VERIFIER=1 llvm-lit llvm/test/CodeGen/X86
+
+    To reproduce a failure that only happens on a bot with this variable set,
+    set it locally, or pass ``"-Dllc=llc -verify-machineinstrs"``.
 
 
 Other Features

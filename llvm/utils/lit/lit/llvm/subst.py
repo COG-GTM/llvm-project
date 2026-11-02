@@ -21,6 +21,7 @@ class FindTool(object):
             if not command:
                 return None
 
+        # Test-time switch, documented in llvm/docs/TestingGuide.rst.
         if self.name == "llc" and os.environ.get("LLVM_ENABLE_MACHINE_VERIFIER") == "1":
             command += " -verify-machineinstrs"
         return command

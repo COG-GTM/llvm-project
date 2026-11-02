@@ -9,11 +9,18 @@
 // This file is used to generate lib/Support/UnicodeNameToCodepointGenerated.cpp
 // using UnicodeData.txt and NameAliases.txt available at
 // https://unicode.org/Public/15.1.0/ucd/
+//
+// Regenerate the output on every Unicode version bump, together with the
+// other Unicode tables (see the header emitted below), after updating
+// UnicodeVersion. The check-unicode-name-table target runs this tool with
+// --check to verify that the table compiled into LLVMSupport matches a given
+// set of UCD files.
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/Unicode.h"
 #include <algorithm>
 #include <deque>
 #include <fstream>
@@ -25,6 +32,15 @@
 #include <utility>
 #include <vector>
 
+// Version of the Unicode Character Database the committed output is built from.
+static const char *const UnicodeVersion = "15.1.0";
+// A character first assigned in UnicodeVersion. UnicodeData.txt has no version
+// header, so its presence is how an older UnicodeData.txt is rejected. Update
+// it together with UnicodeVersion.
+static const char32_t NewestCodepoint = 0x31EF;
+static const char *const NewestName =
+    "IDEOGRAPHIC DESCRIPTION CHARACTER SUBTRACTION";
+
 static const llvm::StringRef Letters =
     " _-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
@@ -33,9 +49,27 @@ static const llvm::StringRef Letters =
 static std::unordered_multimap<char32_t, std::string>
 loadDataFiles(const std::string &NamesFile, const std::string &AliasesFile) {
   std::unordered_multimap<char32_t, std::string> CollectedCharacters;
+  bool HasNewestCharacter = false, HasAliasesVersion = false;
   auto FromFile = [&](const std::string &File, bool IsAliasFile = false) {
     std::ifstream InputFile(File);
+    if (!InputFile) {
+      fprintf(stderr, "Error opening %s.\n", File.c_str());
+      exit(EXIT_FAILURE);
+    }
     for (std::string Line; getline(InputFile, Line);) {
+      // NameAliases.txt starts with "# NameAliases-<version>.txt".
+      llvm::StringRef Header(Line);
+      if (IsAliasFile && Header.consume_front("# NameAliases-") &&
+          Header.consume_back(".txt")) {
+        if (Header != UnicodeVersion) {
+          fprintf(stderr,
+                  "%s is from Unicode %s but UnicodeVersion is %s; update "
+                  "UnicodeVersion in UnicodeNameMappingGenerator.cpp.\n",
+                  File.c_str(), Header.str().c_str(), UnicodeVersion);
+          exit(EXIT_FAILURE);
+        }
+        HasAliasesVersion = true;
+      }
       if (Line.empty() || !isxdigit(Line[0]))
         continue;
       auto FirstSemiPos = Line.find(';');
@@ -75,12 +109,29 @@ loadDataFiles(const std::string &NamesFile, const std::string &AliasesFile) {
         }
         CollectedCharacters.insert({CP, std::move(Name)});
       };
+      if (!IsAliasFile && CodePoint == NewestCodepoint && Name == NewestName)
+        HasNewestCharacter = true;
       InsertUnique(CodePoint, std::move(Name));
     }
   };
 
   FromFile(NamesFile);
+  if (!HasNewestCharacter) {
+    fprintf(stderr,
+            "%s does not list U+%04X %s, which was added in Unicode %s; use "
+            "the UnicodeData.txt of Unicode %s.\n",
+            NamesFile.c_str(), static_cast<unsigned int>(NewestCodepoint),
+            NewestName, UnicodeVersion, UnicodeVersion);
+    exit(EXIT_FAILURE);
+  }
   FromFile(AliasesFile, true);
+  if (!HasAliasesVersion) {
+    fprintf(stderr,
+            "%s lacks the \"# NameAliases-%s.txt\" header; use the "
+            "NameAliases.txt of Unicode %s.\n",
+            AliasesFile.c_str(), UnicodeVersion, UnicodeVersion);
+    exit(EXIT_FAILURE);
+  }
   return CollectedCharacters;
 }
 
@@ -347,19 +398,108 @@ private:
   std::unique_ptr<Node> Root = std::make_unique<Node>("");
 };
 
+static bool isSerializableName(const std::string &Name) {
+  return !Name.empty() &&
+         llvm::all_of(Name, [](char C) { return Letters.contains(C); });
+}
+
+// Returns the prefix of the algorithmically derived names of the code points in
+// a "<Label, First>".."<Label, Last>" range of UnicodeData.txt, an empty string
+// for Hangul syllables (whose names are listed in the table), and std::nullopt
+// for ranges without character names or unknown ranges.
+static std::optional<std::string> namedRangePrefix(llvm::StringRef Label) {
+  if (Label.starts_with("CJK Ideograph"))
+    return std::string("CJK UNIFIED IDEOGRAPH-");
+  if (Label.starts_with("Tangut Ideograph"))
+    return std::string("TANGUT IDEOGRAPH-");
+  if (Label == "Hangul Syllable")
+    return std::string();
+  return std::nullopt;
+}
+
+// Checks that every name listed in the UCD files maps to its code point through
+// the table compiled into LLVMSupport (UnicodeNameToCodepointGenerated.cpp and
+// the algorithmic names in UnicodeNameToCodepoint.cpp).
+static int checkCompiledTable(const std::string &NamesFile,
+                              const std::string &AliasesFile) {
+  unsigned Checked = 0, Errors = 0;
+  auto Check = [&](llvm::StringRef Name, char32_t Expected) {
+    ++Checked;
+    std::optional<char32_t> Actual =
+        llvm::sys::unicode::nameToCodepointStrict(Name);
+    if (Actual == Expected)
+      return;
+    if (++Errors <= 20)
+      fprintf(stderr, "error: %s does not map to U+%04X\n", Name.str().c_str(),
+              static_cast<unsigned int>(Expected));
+  };
+
+  for (const auto &[Codepoint, Name] : loadDataFiles(NamesFile, AliasesFile))
+    if (isSerializableName(Name))
+      Check(Name, Codepoint);
+
+  std::ifstream InputFile(NamesFile);
+  std::optional<unsigned long long> RangeStart;
+  for (std::string Line; getline(InputFile, Line);) {
+    llvm::SmallVector<llvm::StringRef, 3> Fields;
+    llvm::StringRef(Line).split(Fields, ';', 2);
+    unsigned long long Codepoint;
+    if (Fields.size() < 3 || Fields[0].getAsInteger(16, Codepoint))
+      continue;
+    llvm::StringRef Label = Fields[1];
+    if (Label.consume_back(", First>")) {
+      RangeStart = Codepoint;
+      continue;
+    }
+    if (!Label.consume_back(", Last>") || !RangeStart)
+      continue;
+    Label.consume_front("<");
+    if (std::optional<std::string> Prefix = namedRangePrefix(Label)) {
+      for (unsigned long long C = *RangeStart;
+           !Prefix->empty() && C <= Codepoint; ++C)
+        Check(*Prefix + llvm::utohexstr(C), C);
+    } else if (!Label.contains("Surrogate") && !Label.contains("Private Use")) {
+      ++Errors;
+      fprintf(stderr,
+              "error: unknown named range <%s> (U+%04llX..U+%04llX); teach "
+              "UnicodeNameToCodepoint.cpp and this tool its names.\n",
+              Label.str().c_str(), *RangeStart, Codepoint);
+    }
+    RangeStart.reset();
+  }
+
+  printf("Checked %u names against the table built from Unicode %s: %u "
+         "errors.\n",
+         Checked, UnicodeVersion, Errors);
+  if (Errors)
+    fprintf(stderr, "UnicodeNameToCodepointGenerated.cpp or the tables in "
+                    "UnicodeNameToCodepoint.cpp are out of date; regenerate "
+                    "them as described in UnicodeNameToCodepointGenerated.cpp."
+                    "\n");
+  return Errors ? EXIT_FAILURE : EXIT_SUCCESS;
+}
+
 extern const char *UnicodeLicense;
 
 int main(int argc, char **argv) {
+  if (argc == 4 && llvm::StringRef(argv[1]) == "--check")
+    return checkCompiledTable(argv[2], argv[3]);
+
   printf("Unicode name -> codepoint mapping generator\n"
-         "Usage: %s UnicodeData.txt NameAliases.txt output\n\n",
-         argv[0]);
+         "Usage: %s UnicodeData.txt NameAliases.txt output\n"
+         "       %s --check UnicodeData.txt NameAliases.txt\n\n",
+         argv[0], argv[0]);
   printf("NameAliases.txt can be found at "
-         "https://unicode.org/Public/15.1.0/ucd/NameAliases.txt\n"
+         "https://unicode.org/Public/%s/ucd/NameAliases.txt\n"
          "UnicodeData.txt can be found at "
-         "https://unicode.org/Public/15.1.0/ucd/UnicodeData.txt\n\n");
+         "https://unicode.org/Public/%s/ucd/UnicodeData.txt\n\n",
+         UnicodeVersion, UnicodeVersion);
 
   if (argc != 4)
     return EXIT_FAILURE;
+
+  // Validate the inputs before truncating the output.
+  auto Entries = loadDataFiles(argv[1], argv[2]);
 
   FILE *Out = fopen(argv[3], "w");
   if (!Out) {
@@ -370,15 +510,12 @@ int main(int argc, char **argv) {
   Trie T;
   uint32_t NameCount = 0;
   std::size_t LongestName = 0;
-  auto Entries = loadDataFiles(argv[1], argv[2]);
   for (const std::pair<const char32_t, std::string> &Entry : Entries) {
     char32_t Codepoint = Entry.first;
     const std::string &Name = Entry.second;
     // Ignore names which are not valid.
-    if (Name.empty() ||
-        !llvm::all_of(Name, [](char C) { return Letters.contains(C); })) {
+    if (!isSerializableName(Name))
       continue;
-    }
     printf("%06x: %s\n", static_cast<unsigned int>(Codepoint), Name.c_str());
     T.insert(Name, Codepoint);
     LongestName =
@@ -401,8 +538,25 @@ int main(int argc, char **argv) {
 //
 // This file implements mapping the name of a unicode code point to its value.
 //
-// This file was generated using %s.
+// This file was generated by llvm/utils/UnicodeData/UnicodeNameMappingGenerator
+// from the Unicode Character Database, version %s:
+//   https://unicode.org/Public/%s/ucd/UnicodeData.txt
+//   https://unicode.org/Public/%s/ucd/NameAliases.txt
 // Do not edit manually.
+//
+// Regenerate this file on every Unicode version bump, together with the other
+// Unicode tables that must stay in sync with it:
+//   llvm/lib/Support/UnicodeNameToCodepoint.cpp (algorithmic names, CJK ranges)
+//   llvm/lib/Support/Unicode.cpp (printable/formatting ranges)
+//   llvm/lib/Support/UnicodeCaseFold.cpp (llvm/utils/unicode-case-fold.py)
+//   clang/lib/Lex/UnicodeCharSets.h (XID_Start/XID_Continue)
+// with:
+//   ninja UnicodeNameMappingGenerator
+//   ./bin/UnicodeNameMappingGenerator UnicodeData.txt NameAliases.txt <out>
+// where <out> is llvm/lib/Support/UnicodeNameToCodepointGenerated.cpp,
+// and verify it with:
+//   cmake -DLLVM_UNICODE_DATA_DIR=<dir with the UCD files> .
+//   ninja check-unicode-name-table
 //
 //===----------------------------------------------------------------------===//
 %s
@@ -413,7 +567,7 @@ int main(int argc, char **argv) {
 #include <cstddef>
 #include <cstdint>
 )",
-          argv[0], UnicodeLicense);
+          UnicodeVersion, UnicodeVersion, UnicodeVersion, UnicodeLicense);
 
   fprintf(Out,
           "namespace llvm { namespace sys { namespace unicode { \n"

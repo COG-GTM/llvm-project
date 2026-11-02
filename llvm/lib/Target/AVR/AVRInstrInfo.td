@@ -320,8 +320,8 @@ def HasTinyEncoding : Predicate<"Subtarget->hasTinyEncoding()">,
 def HasNonTinyEncoding : Predicate<"!Subtarget->hasTinyEncoding()">,
                          AssemblerPredicate<(any_of (not FeatureTinyEncoding))>;
 
-// AVR specific condition code. These correspond to AVR_*_COND in
-// AVRInstrInfo.td. They must be kept in synch.
+// AVR specific condition code. These correspond to AVRCC::CondCodes in
+// AVRInstrInfo.h. They must be kept in synch.
 def AVR_COND_EQ : PatLeaf<(i8 0)>;
 def AVR_COND_NE : PatLeaf<(i8 1)>;
 def AVR_COND_GE : PatLeaf<(i8 2)>;

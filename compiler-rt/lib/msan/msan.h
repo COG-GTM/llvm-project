@@ -278,6 +278,7 @@ addr_is_type(uptr addr, int mapping_types) {
 #define MEM_IS_ORIGIN(mem) addr_is_type((uptr)(mem), MappingDesc::ORIGIN)
 
 // These constants must be kept in sync with the ones in MemorySanitizer.cpp.
+// compiler-rt/test/msan/Linux/tls_abi_sizes.cpp checks that they match.
 const int kMsanParamTlsSize = 800;
 const int kMsanRetvalTlsSize = 800;
 

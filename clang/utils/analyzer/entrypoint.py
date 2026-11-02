@@ -50,22 +50,27 @@ def is_cmake_needed():
     return "build.ninja" not in os.listdir()
 
 
-CMAKE_COMMAND = (
-    "cmake -G Ninja -DCMAKE_BUILD_TYPE=Release "
-    "-DCMAKE_INSTALL_PREFIX=/analyzer -DLLVM_TARGETS_TO_BUILD=X86 "
-    '-DLLVM_ENABLE_PROJECTS="clang" -DLLVM_ENABLE_RUNTIMES="openmp" '
-    "-DLLVM_BUILD_RUNTIME=OFF -DCLANG_ENABLE_STATIC_ANALYZER=ON"
-)
+CMAKE_COMMAND = [
+    "cmake",
+    "-G",
+    "Ninja",
+    "-DCMAKE_BUILD_TYPE=Release",
+    "-DCMAKE_INSTALL_PREFIX=/analyzer",
+    "-DLLVM_TARGETS_TO_BUILD=X86",
+    "-DLLVM_ENABLE_PROJECTS=clang",
+    "-DLLVM_ENABLE_RUNTIMES=openmp",
+    "-DLLVM_BUILD_RUNTIME=OFF",
+    "-DCLANG_ENABLE_STATIC_ANALYZER=ON",
+]
 
 
-def cmake(cmake_options):
-    check_call(
-        CMAKE_COMMAND + " ".join(cmake_options) + " /llvm-project/llvm", shell=True
-    )
+def cmake(cmake_options: List[str]):
+    # User options come after the defaults so that they can override them.
+    check_call(CMAKE_COMMAND + cmake_options + ["/llvm-project/llvm"])
 
 
 def ninja():
-    check_call("ninja install", shell=True)
+    check_call(["ninja", "install"])
 
 
 def test(args: List[str]) -> int:

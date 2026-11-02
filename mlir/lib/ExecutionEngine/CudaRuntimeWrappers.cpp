@@ -130,6 +130,16 @@ public:
 // at the beginning of the program before multi-threads are created.
 static cusparseHandle_t cusparse_env = nullptr;
 
+// The sparse wrappers receive the transpose mode as the int32 value of
+// gpu::TransposeMode (GPU_TransposeMode in GPUOps.td) and cast it straight to
+// cusparseOperation_t, so the two enums must agree.
+static_assert(CUSPARSE_OPERATION_NON_TRANSPOSE == 0,
+              "cusparseOperation_t out of sync with gpu::TransposeMode");
+static_assert(CUSPARSE_OPERATION_TRANSPOSE == 1,
+              "cusparseOperation_t out of sync with gpu::TransposeMode");
+static_assert(CUSPARSE_OPERATION_CONJUGATE_TRANSPOSE == 2,
+              "cusparseOperation_t out of sync with gpu::TransposeMode");
+
 #ifdef MLIR_ENABLE_CUDA_CUSPARSELT
 // cusparseLtHandle_t is not a pointer type, so we need an additional flag to
 // indicate whether it is initialized.

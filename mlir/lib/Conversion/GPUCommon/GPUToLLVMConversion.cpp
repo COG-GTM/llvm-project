@@ -1190,6 +1190,17 @@ static Value genConstInt32From(OpBuilder &builder, Location loc, T tValue) {
                                   static_cast<int32_t>(tValue));
 }
 
+// The transpose mode is passed to the CUDA runtime wrappers as an int32 and
+// cast to cusparseOperation_t there; CudaRuntimeWrappers.cpp checks the
+// cuSPARSE side of this contract.
+static_assert(static_cast<int32_t>(gpu::TransposeMode::NON_TRANSPOSE) == 0,
+              "gpu::TransposeMode out of sync with cusparseOperation_t");
+static_assert(static_cast<int32_t>(gpu::TransposeMode::TRANSPOSE) == 1,
+              "gpu::TransposeMode out of sync with cusparseOperation_t");
+static_assert(static_cast<int32_t>(gpu::TransposeMode::CONJUGATE_TRANSPOSE) ==
+                  2,
+              "gpu::TransposeMode out of sync with cusparseOperation_t");
+
 template <typename T>
 static Value genConstFloat32From(OpBuilder &builder, Location loc, T tValue) {
   Type llvmFloat32Type = builder.getF32Type();

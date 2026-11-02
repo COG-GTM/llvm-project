@@ -4,6 +4,10 @@
 
 """Helper macros to configure the LLVM overlay project."""
 
+# Default for `llvm_configure(targets = ...)`: expands to LLVM_ALL_TARGETS
+# parsed from llvm/CMakeLists.txt. An explicit list (including []) is kept.
+ALL_TARGETS = "LLVM_ALL_TARGETS"
+
 MAX_TRAVERSAL_STEPS = 1000000  # "big number" upper bound on total visited dirs
 
 def _overlay_directories(repository_ctx):
@@ -181,7 +185,7 @@ def _llvm_configure_impl(repository_ctx):
     # Create a starlark file with the requested LLVM targets. Default to
     # LLVM_ALL_TARGETS so Bazel builds the same backends as CMake.
     llvm_targets = repository_ctx.attr.targets
-    if not llvm_targets:
+    if llvm_targets == [ALL_TARGETS]:
         llvm_targets = _extract_cmake_list(
             repository_ctx,
             llvm_cmake,
@@ -208,6 +212,7 @@ llvm_configure = repository_rule(
     configure = True,
     attrs = {
         "targets": attr.string_list(
+            default = [ALL_TARGETS],
             doc = "LLVM targets to build (default: LLVM_ALL_TARGETS).",
         ),
     },

@@ -26,6 +26,7 @@
 #include "llvm/ADT/SparseBitVector.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/CodeGenTypes/MachineValueType.h"
+#include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Format.h"
@@ -1021,8 +1022,7 @@ void RegisterInfoEmitter::runMCDesc(raw_ostream &OS, raw_ostream &MainOS,
   for (const auto &Reg : Regs) {
     unsigned FirstRU = Reg.getNativeRegUnits().find_first();
     unsigned Offset = DiffSeqs.get(RegUnitLists[i]);
-    // The value must be kept in sync with MCRegisterInfo.h.
-    constexpr unsigned RegUnitBits = 12;
+    constexpr unsigned RegUnitBits = MCRegisterDesc::RegUnitBits;
     assert(isUInt<RegUnitBits>(FirstRU) && "Too many regunits");
     assert(isUInt<32 - RegUnitBits>(Offset) && "Offset is too big");
     OS << "  { " << RegStrings.get(Reg.getName().str()) << ", "

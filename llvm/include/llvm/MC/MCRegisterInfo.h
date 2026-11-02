@@ -121,9 +121,15 @@ struct MCRegisterDesc {
   // sub-register in SubRegs.
   uint32_t SubRegIndices;
 
-  // Points to the list of register units. The low bits hold the first regunit
-  // number, the high bits hold an offset into DiffLists. See MCRegUnitIterator.
+  // Points to the list of register units. The low RegUnitBits bits hold the
+  // first regunit number, the high bits hold an offset into DiffLists. See
+  // MCRegUnitIterator.
   uint32_t RegUnits;
+
+  /// Number of low bits of RegUnits that hold the first regunit number. Shared
+  /// by the TableGen RegisterInfoEmitter (encoder) and MCRegUnitIterator
+  /// (decoder).
+  static constexpr unsigned RegUnitBits = 12;
 
   /// Index into list with lane mask sequences. The sequence contains a lanemask
   /// for every register unit.
@@ -657,8 +663,7 @@ class MCRegUnitIterator
     : public iterator_adaptor_base<MCRegUnitIterator,
                                    MCRegisterInfo::DiffListIterator,
                                    std::forward_iterator_tag, const MCRegUnit> {
-  // The value must be kept in sync with RegisterInfoEmitter.cpp.
-  static constexpr unsigned RegUnitBits = 12;
+  static constexpr unsigned RegUnitBits = MCRegisterDesc::RegUnitBits;
   // Cache the current value, so that we can return a reference to it.
   MCRegUnit Val;
 

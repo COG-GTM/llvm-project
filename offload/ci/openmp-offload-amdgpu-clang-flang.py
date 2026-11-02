@@ -42,6 +42,8 @@ with worker.run(
     with w.step("compile-openmp", halt_on_fail=True):
         w.run_ninja(builddir=llvmbuilddir, ccache_stats=True)
 
+    # HSA_ENABLE_SDMA=0 is documented in openmp/docs/Building.md
+    # ("Reproducing the AMDGPU buildbot configuration").
     with w.step("test-openmp"):
         w.run_ninja(
             ["check-openmp"], add_env={"HSA_ENABLE_SDMA": "0"}, builddir=llvmbuilddir

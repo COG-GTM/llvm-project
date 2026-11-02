@@ -248,6 +248,105 @@ $ ninja
 ```
 
 
+(running_the_tests)=
+## Running the Tests
+
+`ninja check-openmp` runs the `libomp` (including its OMPT tests), `libomp`
+unit test, OMPT ompTest, OMPT multiplex, `libompd` and Archer suites. `ninja check-offload` runs the offload (`libomptarget`) suites,
+one per target triple; `ninja check-libomptarget-<triple>` runs only one of
+them. Use [`LIBOMPTARGET_LIT_ARGS`](LIBOMPTARGET_LIT_ARGS) or `LLVM_LIT_ARGS` to
+pass extra arguments to `lit`.
+
+`lit` does not pass the caller's environment to the tests. Only a fixed list of
+variables (`LD_LIBRARY_PATH`, `TMPDIR`, the sanitizer `*_OPTIONS`, ...) and the
+variables that a suite's `lit.cfg` forwards explicitly reach the test
+processes. A variable that is not listed below has no effect on the tests,
+even when it is exported in the shell that runs `ninja`.
+
+### Environment variables honored by the offload tests
+
+These are read by `offload/test/lit.cfg` (`check-offload`,
+`check-libomptarget-*`).
+
+**CUDA_VISIBLE_DEVICES**, **ROCR_VISIBLE_DEVICES**
+: Forwarded if set. Select the NVIDIA or AMD GPUs the tests run on.
+
+**LIBOMPTARGET_DEBUG**, **LIBOMPTARGET_TREAT_ATTACH_AUTO_AS_ALWAYS**, **LIBOMPTARGET_LOCK_MAPPED_HOST_BUFFERS**, **LIBOMPTARGET_NEXTGEN_PLUGINS**, **OMP_TARGET_OFFLOAD**
+: Forwarded if set. They change the behavior of the offload runtime as
+described in [LIBOMPTARGET environment variables](libopenmptarget_environment_vars).
+`LIBOMPTARGET_DEBUG` only prints output if the runtime was built with
+[`LIBOMPTARGET_ENABLE_DEBUG`](LIBOMPTARGET_ENABLE_DEBUG).
+The `nvptx64-nvidia-cuda-JIT-LTO` suite also reads `LIBOMPTARGET_NEXTGEN_PLUGINS`
+to decide whether to add `-foffload-lto -Wl,--embed-bitcode` and requires it to
+be set (directly or via `CHECK_OPENMP_ENV`).
+
+**HSA_ENABLE_SDMA**
+: Forwarded if set. ROCm runtime setting; `HSA_ENABLE_SDMA=0` makes the AMD GPU
+runtime use shader (blit) kernels instead of the SDMA engines for host/device
+memory copies. The AMDGPU buildbots
+(`offload/ci/openmp-offload-amdgpu-clang-flang.py` and
+`offload/ci/openmp-offload-amdgpu-runtime.py`) run `check-openmp` and
+`check-offload` with `HSA_ENABLE_SDMA=0`, so set it the same way when
+reproducing an AMDGPU bot failure (see below).
+
+**IS_APU** (default: `0`)
+: gfx942 can be either a discrete GPU or an APU (e.g. MI300A). If the first
+detected AMD GPU is gfx942 and `IS_APU` is `1`, `on` or `true`
+(case-insensitive), the `apu` lit feature is enabled and tests marked
+`REQUIRES: apu` run; otherwise they are reported as `UNSUPPORTED`. It has no
+effect on other architectures.
+
+**CHECK_OPENMP_ENV**
+: See below. Applied after the variables above, so it can also set or
+override any of them (including `IS_APU`).
+
+### Environment variables honored by the OpenMP tests
+
+**CHECK_OPENMP_ENV**
+: Read by the `libomp` (`openmp/runtime/test`), Archer and multiplex suites
+and by the offload suites. A whitespace-separated list of `NAME=VALUE` pairs
+that are set in the environment of every test, for example
+`CHECK_OPENMP_ENV="OMP_NUM_THREADS=4 KMP_AFFINITY=disabled"`. Values cannot
+contain whitespace, anything after a second `=` in a pair is dropped, and an
+entry without `=` makes `lit` fail while loading the configuration. The Archer
+suite always sets `ARCHER_OPTIONS=report_data_leak=1` after applying
+`CHECK_OPENMP_ENV`. The OMPT (`omptest`) and `libompd` suites ignore it.
+
+**INTEL_LICENSE_FILE**
+: Forwarded by the `libomp`, Archer, multiplex and `libompd` suites. Only
+needed when testing with the Intel compiler.
+
+**OMP_NUM_THREADS**
+: Forwarded by the `libompd` suite only. Other suites ignore it unless it is
+passed via `CHECK_OPENMP_ENV`.
+
+**OBJECT_MODE**
+: AIX only. `libomp` tests run in 32-bit mode unless `OBJECT_MODE=64` is set.
+
+### Reproducing the AMDGPU buildbot configuration
+
+The AMDGPU buildbots configure with
+`-C offload/cmake/caches/AMDGPUBot.cmake` and run the tests with
+`HSA_ENABLE_SDMA=0`; see `offload/ci/openmp-offload-amdgpu-*.py` for the full
+set of CMake options. To run the tests the same way:
+
+```sh
+HSA_ENABLE_SDMA=0 ninja check-openmp check-offload
+```
+
+On an MI300A (gfx942 APU) add `IS_APU=1` so the APU-specific tests run.
+Only the offload suites forward `HSA_ENABLE_SDMA`; the `libomp` suites run by
+`check-openmp` do not see it unless it is also passed via `CHECK_OPENMP_ENV`.
+To rerun a single failing AMDGPU test the same way, combine a single-suite
+target with `lit`'s `LIT_FILTER` (a regular expression matched against the
+test path):
+
+```sh
+HSA_ENABLE_SDMA=0 LIT_FILTER='<test-name>' \
+    ninja check-libomptarget-amdgcn-amd-amdhsa
+```
+
+
 ## CMake Configuration Parameter Reference
 
 CMake configuration parameters specific to OpenMP are prefixed with `OPENMP_`,
@@ -395,12 +494,14 @@ out-of-tree builds.
 : Path of the folder that contains `libomp.so`, and `libLLVMSupport.so`
 when profiling is enabled. This is required for testing.
 
+(LIBOMPTARGET_LIT_ARGS)=
 **LIBOMPTARGET_LIT_ARGS**:STRING
 : Arguments given to lit. `make check-libomptarget` and
 `make check-libomptarget-*` are affected. For example, use
 `LIBOMPTARGET_LIT_ARGS="-j4"` to force `lit` to start only four parallel
 jobs instead of by default the number of threads in the system.
 
+(LIBOMPTARGET_ENABLE_DEBUG)=
 **LIBOMPTARGET_ENABLE_DEBUG**:BOOL
 : Enable printing of debug messages with the `LIBOMPTARGET_DEBUG=1` environment
 variable.

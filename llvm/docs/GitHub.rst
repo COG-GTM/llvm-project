@@ -343,6 +343,64 @@ test failures directly linked to your changes. Our policy is still to keep the
 ``main`` branch in a good condition, and introducing failures to be fixed later
 violates that policy.
 
+.. _premerge-excluded-projects:
+
+Projects not tested by pre-merge CI
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The pre-merge build and test jobs only build and test the projects affected by
+a pull request. ``.ci/compute_projects.py`` maps each changed file to the
+project in its top-level directory, adds the dependent projects listed in
+``DEPENDENTS_TO_TEST`` (for example, changes to ``clang`` or ``lld`` also
+request ``cross-project-tests``, and changes under ``.ci`` request almost every
+project), and then runs the matching ``check-*`` targets from
+``PROJECT_CHECK_TARGETS``.
+
+Some projects are then removed again by the per-platform ``EXCLUDE_*`` lists in
+the same script, so their tests never run in pre-merge CI on that platform, even
+when a pull request modifies them directly. A green pre-merge run does **not**
+mean these projects were tested; regressions in them are only caught by the
+post-commit buildbots, so please run the relevant ``check-*`` targets locally
+(for example ``ninja check-openmp`` or ``ninja check-cross-project``) when you
+change them. The job summary of each pre-merge run lists the projects that the
+change would have tested but that were excluded on that platform.
+
+Linux (x86_64 and AArch64):
+
+* ``cross-project-tests``: tests are failing
+  (`#132796 <https://github.com/llvm/llvm-project/issues/132796>`_).
+* ``openmp``: not enabled. There is no ``llvm/llvm-project`` tracking issue
+  yet; it was previously tracked in the archived
+  ``google/llvm-premerge-checks`` repository (issue 410).
+
+Windows:
+
+* ``cross-project-tests``: tests are failing
+  (`#132797 <https://github.com/llvm/llvm-project/issues/132797>`_).
+* ``openmp``: the build does not detect the Perl installation
+  (`#132799 <https://github.com/llvm/llvm-project/issues/132799>`_).
+* ``lldb``: needs environment setup
+  (`#132800 <https://github.com/llvm/llvm-project/issues/132800>`_).
+* ``bolt``, ``libc``: no Windows support.
+* ``flang-rt``, ``libcxx``, ``libcxxabi``, ``libunwind``: not enabled in the
+  Windows pre-merge configuration.
+
+Windows, only when a dependency changed (the project is still tested when it is
+modified directly):
+
+* ``flang``: not yet stable enough or too expensive to test on every change to
+  its dependencies.
+
+macOS (this job only runs for ``release/*`` branches):
+
+* ``bolt``, ``compiler-rt``, ``cross-project-tests``, ``flang``, ``libc``,
+  ``libcxx``, ``libcxxabi``, ``libunwind``, ``lldb``, ``openmp``, ``polly``:
+  not enabled in the macOS pre-merge configuration.
+
+When a project is re-enabled or newly excluded, update both
+``.ci/compute_projects.py`` and this list; ``.ci/compute_projects_test.py``
+checks that they match.
+
 Problems After Landing Your Change
 ==================================
 

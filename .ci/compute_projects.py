@@ -93,9 +93,15 @@ DEPENDENT_RUNTIMES_TO_TEST_NEEDS_RECONFIG = {
     ".ci": {"libcxx", "libcxxabi", "libunwind"},
 }
 
+# Projects that are never tested on a given platform, even when they are
+# modified directly or requested in DEPENDENTS_TO_TEST. Keep the "Projects not
+# tested by pre-merge CI" section of llvm/docs/GitHub.rst in sync with these
+# lists (compute_projects_test.py checks this).
 EXCLUDE_LINUX = {
     "cross-project-tests",  # TODO(issues/132796): Tests are failing.
-    "openmp",  # https://github.com/google/llvm-premerge-checks/issues/410
+    # TODO: Needs an llvm/llvm-project tracking issue. This was previously
+    # tracked in google/llvm-premerge-checks#410, which is archived.
+    "openmp",
 }
 
 # Runtimes configured for cross-compilation using LLVM_RUNTIME_TARGETS.
@@ -241,6 +247,33 @@ def _compute_projects_to_test(modified_projects: Set[str], platform: str) -> Set
     return projects_to_test
 
 
+def _compute_excluded_projects(modified_projects: Set[str], platform: str) -> Set[str]:
+    """Returns the projects/runtimes this change asks to test that are dropped
+    on the given platform by the EXCLUDE_* lists."""
+    requested = set()
+    skipped_dependents = set()
+    for modified_project in modified_projects:
+        if (
+            modified_project in PROJECT_CHECK_TARGETS
+            and modified_project not in RUNTIMES
+        ):
+            requested.add(modified_project)
+        for dependent_project in DEPENDENTS_TO_TEST.get(modified_project, set()):
+            if (
+                platform == "Windows"
+                and dependent_project in EXCLUDE_DEPENDENTS_WINDOWS
+            ):
+                skipped_dependents.add(dependent_project)
+            else:
+                requested.add(dependent_project)
+        requested.update(DEPENDENT_RUNTIMES_TO_TEST.get(modified_project, set()))
+        requested.update(
+            DEPENDENT_RUNTIMES_TO_TEST_NEEDS_RECONFIG.get(modified_project, set())
+        )
+    excluded = requested - _exclude_projects(requested, platform)
+    return excluded | (skipped_dependents - requested)
+
+
 def _compute_projects_to_build(
     projects_to_test: Set[str], runtimes: Set[str]
 ) -> Set[str]:
@@ -332,6 +365,7 @@ def get_env_variables(modified_files: list[str], platform: str) -> Set[str]:
     projects_to_build = _compute_projects_to_build(
         projects_to_test, runtimes_to_build | cross_runtimes_to_test
     )
+    excluded_projects = _compute_excluded_projects(modified_projects, platform)
     projects_check_targets = _compute_project_check_targets(projects_to_test)
     runtimes_check_targets = _compute_project_check_targets(runtimes_to_test)
     runtimes_check_targets_needs_reconfig = _compute_project_check_targets(
@@ -359,6 +393,7 @@ def get_env_variables(modified_files: list[str], platform: str) -> Set[str]:
             sorted(runtimes_check_targets_needs_reconfig)
         ),
         "enable_cir": enable_cir,
+        "excluded_projects": " ".join(sorted(excluded_projects)),
     }
 
 

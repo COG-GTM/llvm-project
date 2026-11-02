@@ -7,7 +7,12 @@ declare_args() {
   llvm_targets_to_build = "host"
 }
 
-# FIXME: Port the remaining targets.
+# These lists mirror LLVM_ALL_TARGETS and LLVM_ALL_EXPERIMENTAL_TARGETS in
+# llvm/CMakeLists.txt. Every CMake target must be in exactly one of the
+# llvm_all_* (ported to GN) or llvm_unported_* lists below;
+# llvm/utils/gn/build/sync_source_lists_from_cmake.py reports any drift.
+# See "Adding a target" in llvm/utils/gn/README.rst for all files to edit
+# when porting a target.
 llvm_all_stable_targets = [
   "AArch64",
   "AMDGPU",
@@ -30,6 +35,25 @@ llvm_all_stable_targets = [
 llvm_all_experimental_targets = []
 
 llvm_all_targets = llvm_all_stable_targets + llvm_all_experimental_targets
+
+# FIXME: Port the remaining targets.
+llvm_unported_stable_targets = [
+  "MSP430",
+  "SPIRV",
+  "VE",
+  "XCore",
+]
+
+llvm_unported_experimental_targets = [
+  "ARC",
+  "CSKY",
+  "DirectX",
+  "M68k",
+  "Xtensa",
+]
+
+llvm_unported_targets =
+    llvm_unported_stable_targets + llvm_unported_experimental_targets
 
 # FIXME: This should be based off target_cpu once cross compiles work.
 if (host_cpu == "arm64") {
@@ -94,10 +118,19 @@ foreach(target, llvm_targets_to_build) {
   } else if (target == "X86") {
     llvm_build_X86 = true
   } else if (target == "AVR" || target == "Hexagon" || target == "Lanai" ||
-             target == "NVPTX" || target == "RISCV" || target == "Sparc" ||
-             target == "SystemZ") {
+             target == "NVPTX" || target == "Sparc") {
     # Nothing to do.
   } else {
+    is_unported = false
+    foreach(unported, llvm_unported_targets) {
+      if (target == unported) {
+        is_unported = true
+      }
+    }
+    assert(!is_unported,
+           "Target '$target' in llvm_targets_to_build exists in CMake but " +
+               "is not ported to the GN build yet. See \"Adding a target\" " +
+               "in llvm/utils/gn/README.rst.")
     all_targets_string = ""
     foreach(target, llvm_all_targets) {
       all_targets_string += "$0x0a    " + target

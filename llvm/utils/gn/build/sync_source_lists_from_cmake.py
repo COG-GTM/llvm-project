@@ -9,6 +9,11 @@ file, and prints the difference if not.
 Also checks that each CMakeLists.txt file below unittests/ folders that define
 binaries have corresponding BUILD.gn files.
 
+Also checks that the target lists in llvm/lib/Target/targets.gni and the
+targets_with_*.gni capability lists match LLVM_ALL_TARGETS and
+LLVM_ALL_EXPERIMENTAL_TARGETS in llvm/CMakeLists.txt and the backends in
+llvm/lib/Target/.
+
 If --write is passed, tries to write modified .gn files and adds one git
 commit for each cmake commit this merges. If an error is reported, the state
 of HEAD is unspecified; run `git reset --hard origin/main` if this happens.
@@ -176,10 +181,120 @@ def sync_unittests():
     return changed
 
 
+def sync_targets():
+    gn_target_dir = "llvm/utils/gn/secondary/llvm/lib/Target"
+    cmake_text = open("llvm/CMakeLists.txt").read()
+    gn_text = open(os.path.join(gn_target_dir, "targets.gni")).read()
+
+    def cmake_list(name):
+        m = re.search(r"^set\(%s\s([^)]*)\)" % name, cmake_text, re.MULTILINE)
+        if not m:
+            raise ValueError("llvm/CMakeLists.txt: %s not found" % name)
+        return m.group(1).split()
+
+    def gn_list(name):
+        m = re.search(r"^%s = \[([^]]*)\]" % name, gn_text, re.MULTILINE)
+        if not m:
+            raise ValueError("targets.gni: %s not found" % name)
+        return re.findall(r'"([^"]+)"', m.group(1))
+
+    cmake = {
+        "stable": cmake_list("LLVM_ALL_TARGETS"),
+        "experimental": cmake_list("LLVM_ALL_EXPERIMENTAL_TARGETS"),
+    }
+    gn = {
+        "stable": gn_list("llvm_all_stable_targets"),
+        "experimental": gn_list("llvm_all_experimental_targets"),
+    }
+    unported = {
+        "stable": gn_list("llvm_unported_stable_targets"),
+        "experimental": gn_list("llvm_unported_experimental_targets"),
+    }
+    all_cmake = set(cmake["stable"] + cmake["experimental"])
+    all_gn = set(gn["stable"] + gn["experimental"])
+
+    problems = []
+    for kind in ("stable", "experimental"):
+        listed = gn[kind] + unported[kind]
+        for t in sorted(set(listed)):
+            if listed.count(t) > 1:
+                problems.append("%s listed more than once in targets.gni" % t)
+        for t in sorted(set(cmake[kind]) - set(listed)):
+            problems.append(
+                "%s target %s from llvm/CMakeLists.txt is missing: add it to "
+                "llvm_all_%s_targets (port it) or llvm_unported_%s_targets"
+                % (kind, t, kind, kind)
+            )
+        for t in sorted(set(listed) - set(cmake[kind])):
+            problems.append(
+                "%s is listed as %s in targets.gni but is not in %s in "
+                "llvm/CMakeLists.txt"
+                % (
+                    t,
+                    kind,
+                    "LLVM_ALL_TARGETS"
+                    if kind == "stable"
+                    else "LLVM_ALL_EXPERIMENTAL_TARGETS",
+                )
+            )
+
+    # The validation chain in targets.gni must accept every ported target.
+    chain = set(re.findall(r'target == "([^"]+)"', gn_text))
+    for t in sorted(all_gn):
+        if t not in chain:
+            problems.append(
+                '%s is in llvm_all_*_targets but has no `target == "%s"` '
+                "branch in targets.gni" % (t, t)
+            )
+        if not os.path.exists(os.path.join(gn_target_dir, t, "BUILD.gn")):
+            problems.append(
+                "%s is in llvm_all_*_targets but %s/%s/BUILD.gn does not exist"
+                % (t, gn_target_dir, t)
+            )
+    for t in sorted(set(unported["stable"] + unported["experimental"])):
+        if os.path.exists(os.path.join(gn_target_dir, t, "BUILD.gn")):
+            problems.append(
+                "%s has %s/%s/BUILD.gn but is still in llvm_unported_*_targets"
+                % (t, gn_target_dir, t)
+            )
+
+    # targets_with_*.gni must match the backend capabilities in the source tree.
+    def has_dir(path):
+        return lambda t: os.path.isdir(path % t)
+
+    capabilities = [
+        ("targets_with_asm_parsers.gni", "!=", has_dir("llvm/lib/Target/%s/AsmParser")),
+        (
+            "targets_with_disassemblers.gni",
+            "!=",
+            has_dir("llvm/lib/Target/%s/Disassembler"),
+        ),
+        ("targets_with_exegesis.gni", "==", has_dir("llvm/tools/llvm-exegesis/lib/%s")),
+        ("targets_with_mcas.gni", "==", has_dir("llvm/lib/Target/%s/MCA")),
+    ]
+    for gni, op, has_capability in capabilities:
+        text = open(os.path.join(gn_target_dir, gni)).read()
+        named = set(re.findall(r'target %s "([^"]+)"' % op, text))
+        for t in sorted(named - all_cmake):
+            problems.append("%s names %s, which is not a CMake target" % (gni, t))
+        for t in sorted(all_cmake):
+            listed = (t in named) == (op == "==")
+            if listed != has_capability(t):
+                problems.append(
+                    '%s: %s `target %s "%s"`'
+                    % (gni, "remove" if t in named else "add", op, t)
+                )
+
+    for p in problems:
+        print("targets: " + p)
+    return bool(problems)
+
+
 def main():
     src = sync_source_lists(len(sys.argv) > 1 and sys.argv[1] == "--write")
     tests = sync_unittests()
-    if src or tests:
+    targets = sync_targets()
+    if src or tests or targets:
         sys.exit(1)
 
 

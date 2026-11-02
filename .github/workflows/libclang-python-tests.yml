@@ -10,13 +10,13 @@ on:
     paths:
       - 'clang/bindings/python/**'
       - 'clang/tools/libclang/**'
-      - 'clang/CMakeList.txt'
+      - 'clang/CMakeLists.txt'
       - '.github/workflows/libclang-python-tests.yml'
   pull_request:
     paths:
       - 'clang/bindings/python/**'
       - 'clang/tools/libclang/**'
-      - 'clang/CMakeList.txt'
+      - 'clang/CMakeLists.txt'
       - '.github/workflows/libclang-python-tests.yml'
 
 jobs:
@@ -42,7 +42,7 @@ jobs:
         uses: hendrikmuhs/ccache-action@5ebbd400eff9e74630f759d94ddd7b6c26299639 # v1.2.20
         with:
           max-size: 2G
-          key: spirv-ubuntu-24.04
+          key: libclang-python-ubuntu-24.04
           variant: sccache
       - name: Build and Test
         run: |

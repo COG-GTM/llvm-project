@@ -90,6 +90,7 @@ endforeach()
 # "check-asan-iossim-x86_64" and similar. They also require that an extra env
 # variable to select which iOS device or simulator to use, e.g.:
 # SANITIZER_IOSSIM_TEST_DEVICE_IDENTIFIER="iPhone 6"
+# See "Running tests on Apple simulators" in compiler-rt/docs/TestingGuide.rst.
 if(APPLE)
   set(ASAN_TEST_TARGET_CC ${COMPILER_RT_TEST_COMPILER})
   set(ASAN_TEST_DYNAMIC True)

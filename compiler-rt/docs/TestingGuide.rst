@@ -65,3 +65,58 @@ is ``x86_64-linux-gnu``. Directives that use these ``target-is-${arch}`` string
 require exact matches so ``XFAIL: target-is-mips``,
 ``XFAIL: target-is-mipsel``, ``XFAIL: target-is-mips64``, and
 ``XFAIL: target-is-mips64el`` all refer to different MIPS targets.
+
+Running tests on Apple simulators
+---------------------------------
+
+On Apple hosts with the iOS SDK installed (``COMPILER_RT_ENABLE_IOS``, on by
+default when the SDK is found), the sanitizer test suites are also configured
+for the iOS simulator. These suites are not part of ``check-all``. Run them
+through per-platform, per-architecture targets, for example:
+
+* ``check-asan-iossim-arm64``
+* ``check-tsan-iossim-arm64``
+* ``check-sanitizer-iossim-arm64``
+* ``check-ubsan-Standalone-iossim-arm64`` (also ``AddressSanitizer``,
+  ``ThreadSanitizer`` and ``TypeSanitizer`` variants)
+
+Use ``x86_64`` instead of ``arm64`` on Intel hosts. ``ninja help | grep
+iossim`` lists the targets your build has.
+
+The tests run on an existing simulator selected with an environment variable.
+lit stops with a fatal error if this variable is not set:
+
+``SANITIZER_IOSSIM_TEST_DEVICE_IDENTIFIER`` (required)
+  The simulator to run on. The value is passed to ``xcrun simctl spawn``, so it
+  can be a device UDID or name from ``xcrun simctl list devices available``, or
+  ``booted``. The device must already be booted.
+
+``SANITIZER_IOSSIM_RUN_VERBOSE`` (optional)
+  If set to any non-empty value, ``%run`` prints each command it runs on the
+  simulator.
+
+``SANITIZER_IOSSIM_RUN_WAIT_FOR_DEBUGGER`` (optional)
+  If set to any non-empty value, each test process is started with
+  ``simctl spawn --wait-for-debugger`` and stops at launch until a debugger
+  attaches, for example with ``lldb --wait-for --attach-name <test binary>``.
+  Run a single test at a time when using this.
+
+For example:
+
+.. code-block:: console
+
+  $ xcrun simctl list devices available
+  $ xcrun simctl boot "iPhone 16"
+  $ SANITIZER_IOSSIM_TEST_DEVICE_IDENTIFIER="iPhone 16" ninja check-asan-iossim-arm64
+
+To debug one test, select it with ``LIT_FILTER``:
+
+.. code-block:: console
+
+  $ SANITIZER_IOSSIM_TEST_DEVICE_IDENTIFIER="iPhone 16" \
+    SANITIZER_IOSSIM_RUN_VERBOSE=1 SANITIZER_IOSSIM_RUN_WAIT_FOR_DEBUGGER=1 \
+    LIT_FILTER=<test name> ninja check-asan-iossim-arm64
+
+The helper scripts used by these suites (``%run``, ``%env``, ``%device_rm``
+and the compile wrapper) are in
+``compiler-rt/test/sanitizer_common/ios_commands``.

@@ -469,6 +469,14 @@ elif config.target_os == "Darwin" and not config.apple_target_is_host:
 
     if device_id_env in os.environ:
         config.environment[device_id_env] = os.environ[device_id_env]
+    # Optional debugging switches read by iossim_run.py.
+    if ios_or_iossim == "iossim":
+        for name in [
+            "SANITIZER_IOSSIM_RUN_VERBOSE",
+            "SANITIZER_IOSSIM_RUN_WAIT_FOR_DEBUGGER",
+        ]:
+            if name in os.environ:
+                config.environment[name] = os.environ[name]
     config.substitutions.append(("%run", run_wrapper))
     config.substitutions.append(("%env ", env_wrapper + " "))
     # Current implementation of %device_rm uses the run_wrapper to do

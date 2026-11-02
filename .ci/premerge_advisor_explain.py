@@ -4,6 +4,7 @@
 """Script for getting explanations from the premerge advisor."""
 
 import argparse
+import os
 import platform
 import sys
 import json
@@ -116,6 +117,7 @@ def main(
         junit_objects,
         ninja_logs,
         failure_explanations_list=advisor_explanations,
+        excluded_projects=os.environ.get("PREMERGE_EXCLUDED_PROJECTS", "").split(),
     )
     comments.append(get_comment(github_token, pr_number, report))
     if return_code == 0 and "id" not in comments[0]:

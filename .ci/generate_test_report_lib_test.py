@@ -262,6 +262,60 @@ class TestReports(unittest.TestCase):
             ),
         )
 
+    def test_title_only_excluded_projects(self):
+        self.assertEqual(
+            generate_test_report_lib.generate_report(
+                "Foo", 0, [], [], excluded_projects=["openmp"]
+            ),
+            (
+                dedent(
+                    """\
+                # Foo
+
+                :white_check_mark: The build succeeded and no tests ran. This is expected in some build configurations.
+
+                :warning: This change would test `openmp`, but it is excluded from pre-merge CI on this platform, so no pre-merge results were collected. Regressions will only be caught by post-commit builders. See https://llvm.org/docs/GitHub.html#projects-not-tested-by-pre-merge-ci for details."""
+                ),
+                True,
+            ),
+        )
+
+    def test_no_failures_excluded_projects(self):
+        self.assertEqual(
+            generate_test_report_lib.generate_report(
+                "Foo",
+                0,
+                [
+                    junit_from_xml(
+                        dedent(
+                            """\
+          <?xml version="1.0" encoding="UTF-8"?>
+          <testsuites time="0.00">
+          <testsuite name="Passed" tests="1" failures="0" skipped="0" time="0.00">
+          <testcase classname="Bar/test_1" name="test_1" time="0.00"/>
+          </testsuite>
+          </testsuites>"""
+                        )
+                    )
+                ],
+                [],
+                excluded_projects=["openmp", "cross-project-tests"],
+            ),
+            (
+                dedent(
+                    """\
+              # Foo
+
+              * 1 test passed
+
+              :white_check_mark: The build succeeded and all tests passed.
+
+              :warning: This change would test `cross-project-tests`, `openmp`, but they are excluded from pre-merge CI on this platform, so no pre-merge results were collected. Regressions will only be caught by post-commit builders. See https://llvm.org/docs/GitHub.html#projects-not-tested-by-pre-merge-ci for details."""
+                ),
+                True,
+            ),
+        )
+
     def test_no_tests_in_testsuite(self):
         self.assertEqual(
             generate_test_report_lib.generate_report(

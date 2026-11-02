@@ -4,6 +4,7 @@
 """Script to generate a build report for Github."""
 
 import argparse
+import os
 
 import generate_test_report_lib
 
@@ -20,6 +21,9 @@ if __name__ == "__main__":
         generate_test_report_lib.compute_platform_title(),
         args.return_code,
         args.build_test_logs,
+        # Set by premerge.yaml from the excluded_projects output of
+        # compute_projects.py.
+        excluded_projects=os.environ.get("PREMERGE_EXCLUDED_PROJECTS", "").split(),
     )
 
     print(report)

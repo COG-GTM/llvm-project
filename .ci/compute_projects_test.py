@@ -3,9 +3,46 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 """Tests for compute_projects.py"""
 
+import pathlib
+import re
 import unittest
 
 import compute_projects
+
+GITHUB_DOCS = pathlib.Path(__file__).parent.parent / "llvm" / "docs" / "GitHub.rst"
+
+
+def _parse_documented_exclusions() -> dict[str, set[str]]:
+    """Parses the "Projects not tested by pre-merge CI" list in GitHub.rst."""
+    lines = GITHUB_DOCS.read_text().splitlines()
+    start = lines.index("Projects not tested by pre-merge CI")
+    platform_prefixes = [
+        ("Linux", "Linux"),
+        ("Windows, only when a dependency changed", "Windows dependents"),
+        ("Windows", "Windows"),
+        ("macOS", "Darwin"),
+    ]
+    exclusions = {}
+    current_platform = None
+    current_bullet = None
+    for line in lines[start + 2 :]:
+        if re.fullmatch(r"[=\-^~]+", line):
+            break
+        for prefix, platform_name in platform_prefixes:
+            if line.startswith(prefix):
+                current_platform = platform_name
+                exclusions[current_platform] = set()
+                break
+        if line.startswith("* "):
+            current_bullet = line[2:]
+        elif current_bullet is not None and line.startswith("  "):
+            current_bullet += " " + line.strip()
+        else:
+            current_bullet = None
+        if current_bullet is not None and ": " in current_bullet:
+            names = current_bullet.split(": ", 1)[0]
+            exclusions[current_platform].update(re.findall(r"``([^`]+)``", names))
+    return exclusions
 
 
 class TestComputeProjects(unittest.TestCase):
@@ -448,6 +485,72 @@ class TestComputeProjects(unittest.TestCase):
         self.assertEqual(
             env_variables["runtimes_check_targets_needs_reconfig"],
             "check-cxx check-cxxabi check-unwind",
+        )
+
+    def test_excluded_projects_reported_linux(self):
+        env_variables = compute_projects.get_env_variables(
+            ["openmp/runtime/src/kmp.h", "cross-project-tests/CMakeLists.txt"],
+            "Linux",
+        )
+        self.assertEqual(env_variables["projects_to_build"], "")
+        self.assertEqual(env_variables["project_check_targets"], "")
+        self.assertEqual(
+            env_variables["excluded_projects"], "cross-project-tests openmp"
+        )
+
+    def test_excluded_dependents_reported_linux(self):
+        env_variables = compute_projects.get_env_variables(
+            ["clang/CMakeLists.txt"], "Linux"
+        )
+        self.assertNotIn("check-cross-project", env_variables["project_check_targets"])
+        self.assertEqual(env_variables["excluded_projects"], "cross-project-tests")
+
+    def test_excluded_projects_ci_linux(self):
+        env_variables = compute_projects.get_env_variables(
+            [".ci/compute_projects.py"], "Linux"
+        )
+        self.assertEqual(env_variables["excluded_projects"], "openmp")
+
+    def test_no_excluded_projects_llvm_linux(self):
+        env_variables = compute_projects.get_env_variables(
+            ["llvm/CMakeLists.txt"], "Linux"
+        )
+        self.assertEqual(env_variables["excluded_projects"], "")
+
+    def test_excluded_projects_llvm_windows(self):
+        env_variables = compute_projects.get_env_variables(
+            ["llvm/CMakeLists.txt"], "Windows"
+        )
+        self.assertEqual(
+            env_variables["excluded_projects"],
+            "bolt flang libcxx libcxxabi libunwind lldb",
+        )
+
+    def test_excluded_projects_flang_windows(self):
+        env_variables = compute_projects.get_env_variables(
+            ["flang/CMakeLists.txt"], "Windows"
+        )
+        self.assertIn("check-flang", env_variables["project_check_targets"])
+        self.assertEqual(env_variables["excluded_projects"], "flang-rt")
+
+    def test_excluded_projects_clang_mac(self):
+        env_variables = compute_projects.get_env_variables(
+            ["clang/CMakeLists.txt"], "Darwin"
+        )
+        self.assertEqual(
+            env_variables["excluded_projects"],
+            "compiler-rt cross-project-tests libcxx libcxxabi libunwind lldb",
+        )
+
+    def test_exclusions_documented(self):
+        self.assertEqual(
+            _parse_documented_exclusions(),
+            {
+                "Linux": set(compute_projects.EXCLUDE_LINUX),
+                "Windows": set(compute_projects.EXCLUDE_WINDOWS),
+                "Windows dependents": set(compute_projects.EXCLUDE_DEPENDENTS_WINDOWS),
+                "Darwin": set(compute_projects.EXCLUDE_MAC),
+            },
         )
 
 

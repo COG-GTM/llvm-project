@@ -24,6 +24,9 @@ UNRELATED_FAILURES_STR = (
     "https://github.com/llvm/llvm-project/issues and add the "
     "`infrastructure` label."
 )
+EXCLUDED_PROJECTS_DOCS_URL = (
+    "https://llvm.org/docs/GitHub.html#projects-not-tested-by-pre-merge-ci"
+)
 # The maximum number of lines to pull from a ninja failure.
 NINJA_LOG_SIZE_THRESHOLD = 500
 
@@ -167,6 +170,20 @@ def are_all_failures_explained(
     return True
 
 
+def _format_excluded_projects(excluded_projects: list[str]) -> list[str]:
+    if not excluded_projects:
+        return []
+    projects = ", ".join(f"`{project}`" for project in sorted(excluded_projects))
+    return [
+        "",
+        f":warning: This change would test {projects}, but "
+        f"{'it is' if len(excluded_projects) == 1 else 'they are'} excluded from "
+        "pre-merge CI on this platform, so no pre-merge results were collected. "
+        "Regressions will only be caught by post-commit builders. "
+        f"See {EXCLUDED_PROJECTS_DOCS_URL} for details.",
+    ]
+
+
 # Set size_limit to limit the byte size of the report. The default is 1MB as this
 # is the most that can be put into an annotation. If the generated report exceeds
 # this limit and failures are listed, it will be generated again without failures
@@ -181,6 +198,7 @@ def generate_report(
     size_limit=1024 * 1024,
     list_failures=True,
     failure_explanations_list: list[FailureExplanation] = [],
+    excluded_projects: list[str] = [],
 ) -> tuple[str, bool]:
     failures = get_failures(junit_objects)
     tests_run = 0
@@ -248,6 +266,7 @@ def generate_report(
                         UNRELATED_FAILURES_STR,
                     ]
                 )
+        report.extend(_format_excluded_projects(excluded_projects))
         return ("\n".join(report), all_failures_explained)
 
     tests_passed = tests_run - tests_skipped - tests_failed
@@ -315,6 +334,8 @@ def generate_report(
     if failures or return_code != 0:
         report.extend(["", UNRELATED_FAILURES_STR])
 
+    report.extend(_format_excluded_projects(excluded_projects))
+
     report = "\n".join(report)
     if len(report.encode("utf-8")) > size_limit:
         return generate_report(
@@ -324,6 +345,7 @@ def generate_report(
             ninja_logs,
             size_limit,
             list_failures=False,
+            excluded_projects=excluded_projects,
         )
 
     return (report, all_failures_explained)
@@ -345,9 +367,17 @@ def load_info_from_files(build_log_files):
     return [JUnitXml.fromfile(p) for p in junit_files], ninja_logs
 
 
-def generate_report_from_files(title, return_code, build_log_files):
+def generate_report_from_files(
+    title, return_code, build_log_files, excluded_projects: list[str] = []
+):
     junit_objects, ninja_logs = load_info_from_files(build_log_files)
-    return generate_report(title, return_code, junit_objects, ninja_logs)
+    return generate_report(
+        title,
+        return_code,
+        junit_objects,
+        ninja_logs,
+        excluded_projects=excluded_projects,
+    )
 
 
 def compute_platform_title() -> str:

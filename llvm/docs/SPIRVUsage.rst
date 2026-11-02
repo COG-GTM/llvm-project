@@ -64,8 +64,8 @@ configured with ``-DLLVM_INCLUDE_SPIRV_TOOLS_TESTS=ON``. The option defaults to
 ``OFF``, and in that case the guarded ``RUN`` lines are skipped without any
 warning, so a test can pass locally and still fail validation in CI.
 
-The SPIR-V premerge check (``.github/workflows/spirv-tests.yml``) runs on pull
-requests that touch ``llvm/lib/Target/SPIRV`` or ``llvm/test/CodeGen/SPIRV``. To
+The SPIR-V premerge check (``.github/workflows/spirv-tests.yml``) runs on
+``llvm/llvm-project`` pull requests that touch ``llvm/lib/Target/SPIRV`` or ``llvm/test/CodeGen/SPIRV``. To
 reproduce it locally, configure and test with:
 
 .. code-block:: console

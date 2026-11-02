@@ -1,0 +1,145 @@
+# Header and directory names that are module map keywords must be escaped,
+# otherwise the generated module map does not parse. Keep the keyword list in
+# sync with the module map lexer in clang/lib/Lex/ModuleMapFile.cpp.
+
+# RUN: rm -rf %t && split-file %s %t
+# RUN: modularize -module-map-path=module.modulemap -root-module=Root -prefix=%t %t/headers.list
+# RUN: FileCheck --input-file=%t/module.modulemap %s
+# RUN: %clang_cc1 -fmodules -fno-implicit-modules -x c -emit-module -fmodule-name=Root %t/module.modulemap -o %t/Root.pcm
+
+# CHECK: module Root {
+# CHECK-NEXT:   module _config_macros {
+# CHECK-NEXT:     header "config_macros.h"
+# CHECK-NEXT:     export *
+# CHECK-NEXT:   }
+# CHECK-NEXT:   module _conflict {
+# CHECK-NEXT:     header "conflict.h"
+# CHECK-NEXT:     export *
+# CHECK-NEXT:   }
+# CHECK-NEXT:   module _exclude {
+# CHECK-NEXT:     header "exclude.h"
+# CHECK-NEXT:     export *
+# CHECK-NEXT:   }
+# CHECK-NEXT:   module _explicit {
+# CHECK-NEXT:     header "explicit.h"
+# CHECK-NEXT:     export *
+# CHECK-NEXT:   }
+# CHECK-NEXT:   module _export {
+# CHECK-NEXT:     header "export.h"
+# CHECK-NEXT:     export *
+# CHECK-NEXT:   }
+# CHECK-NEXT:   module _export_as {
+# CHECK-NEXT:     header "export_as.h"
+# CHECK-NEXT:     export *
+# CHECK-NEXT:   }
+# CHECK-NEXT:   module _extern {
+# CHECK-NEXT:     header "extern.h"
+# CHECK-NEXT:     export *
+# CHECK-NEXT:   }
+# CHECK-NEXT:   module _framework {
+# CHECK-NEXT:     header "framework.h"
+# CHECK-NEXT:     export *
+# CHECK-NEXT:   }
+# CHECK-NEXT:   module _header {
+# CHECK-NEXT:     header "header.h"
+# CHECK-NEXT:     export *
+# CHECK-NEXT:   }
+# CHECK-NEXT:   module _link {
+# CHECK-NEXT:     header "link.h"
+# CHECK-NEXT:     export *
+# CHECK-NEXT:   }
+# CHECK-NEXT:   module _module {
+# CHECK-NEXT:     header "module.h"
+# CHECK-NEXT:     export *
+# CHECK-NEXT:   }
+# CHECK-NEXT:   module _private {
+# CHECK-NEXT:     header "private.h"
+# CHECK-NEXT:     export *
+# CHECK-NEXT:   }
+# CHECK-NEXT:   module _requires {
+# CHECK-NEXT:     header "requires.h"
+# CHECK-NEXT:     export *
+# CHECK-NEXT:   }
+# CHECK-NEXT:   module _textual {
+# CHECK-NEXT:     header "textual.h"
+# CHECK-NEXT:     export *
+# CHECK-NEXT:   }
+# CHECK-NEXT:   module _umbrella {
+# CHECK-NEXT:     header "umbrella.h"
+# CHECK-NEXT:     export *
+# CHECK-NEXT:   }
+# CHECK-NEXT:   module _use {
+# CHECK-NEXT:     header "use.h"
+# CHECK-NEXT:     export *
+# CHECK-NEXT:   }
+# CHECK-NEXT:   module Dir {
+# CHECK-NEXT:     module _export_as {
+# CHECK-NEXT:       module Inner {
+# CHECK-NEXT:         header "Dir/export_as/Inner.h"
+# CHECK-NEXT:         export *
+# CHECK-NEXT:       }
+# CHECK-NEXT:     }
+# CHECK-NEXT:     module _textual {
+# CHECK-NEXT:       module Inner {
+# CHECK-NEXT:         header "Dir/textual/Inner.h"
+# CHECK-NEXT:         export *
+# CHECK-NEXT:       }
+# CHECK-NEXT:     }
+# CHECK-NEXT:   }
+# CHECK-NEXT: }
+
+//--- headers.list
+config_macros.h
+conflict.h
+exclude.h
+explicit.h
+export.h
+export_as.h
+extern.h
+framework.h
+header.h
+link.h
+module.h
+private.h
+requires.h
+textual.h
+umbrella.h
+use.h
+Dir/export_as/Inner.h
+Dir/textual/Inner.h
+//--- config_macros.h
+typedef int reserved_config_macros;
+//--- conflict.h
+typedef int reserved_conflict;
+//--- exclude.h
+typedef int reserved_exclude;
+//--- explicit.h
+typedef int reserved_explicit;
+//--- export.h
+typedef int reserved_export;
+//--- export_as.h
+typedef int reserved_export_as;
+//--- extern.h
+typedef int reserved_extern;
+//--- framework.h
+typedef int reserved_framework;
+//--- header.h
+typedef int reserved_header;
+//--- link.h
+typedef int reserved_link;
+//--- module.h
+typedef int reserved_module;
+//--- private.h
+typedef int reserved_private;
+//--- requires.h
+typedef int reserved_requires;
+//--- textual.h
+typedef int reserved_textual;
+//--- umbrella.h
+typedef int reserved_umbrella;
+//--- use.h
+typedef int reserved_use;
+//--- Dir/export_as/Inner.h
+typedef int reserved_dir_export_as;
+//--- Dir/textual/Inner.h
+typedef int reserved_dir_textual;

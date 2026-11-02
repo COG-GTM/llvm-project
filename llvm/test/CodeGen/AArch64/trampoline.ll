@@ -264,6 +264,107 @@ define i64 @func2() {
   ret i64 0
 }
 
+; The ARM64EC x64 thunk calling convention passes the nest parameter in x4
+; instead of x15 (see CCIfNest in AArch64CallingConvention.td), so the
+; trampoline's first instruction must be "ldr x4, .+16" (0x58000084).
+declare cc 108 void @x64thunk_nest(ptr nest)
+
+define i64 @func3() {
+; CHECK-LINUX-LABEL: func3:
+; CHECK-LINUX:       // %bb.0:
+; CHECK-LINUX-NEXT:    str x30, [sp, #-16]! // 8-byte Folded Spill
+; CHECK-LINUX-NEXT:    .cfi_def_cfa_offset 16
+; CHECK-LINUX-NEXT:    .cfi_offset w30, -16
+; CHECK-LINUX-NEXT:    adrp x8, :got:x64thunk_nest
+; CHECK-LINUX-NEXT:    mov w9, #544 // =0x220
+; CHECK-LINUX-NEXT:    adrp x0, trampg
+; CHECK-LINUX-NEXT:    add x0, x0, :lo12:trampg
+; CHECK-LINUX-NEXT:    ldr x8, [x8, :got_lo12:x64thunk_nest]
+; CHECK-LINUX-NEXT:    movk w9, #54815, lsl #16
+; CHECK-LINUX-NEXT:    str w9, [x0, #8]
+; CHECK-LINUX-NEXT:    add x9, sp, #8
+; CHECK-LINUX-NEXT:    add x1, x0, #12
+; CHECK-LINUX-NEXT:    stp x9, x8, [x0, #16]
+; CHECK-LINUX-NEXT:    mov x8, #132 // =0x84
+; CHECK-LINUX-NEXT:    movk x8, #22528, lsl #16
+; CHECK-LINUX-NEXT:    movk x8, #177, lsl #32
+; CHECK-LINUX-NEXT:    movk x8, #22528, lsl #48
+; CHECK-LINUX-NEXT:    str x8, [x0]
+; CHECK-LINUX-NEXT:    bl __clear_cache
+; CHECK-LINUX-NEXT:    mov x0, xzr
+; CHECK-LINUX-NEXT:    ldr x30, [sp], #16 // 8-byte Folded Reload
+; CHECK-LINUX-NEXT:    ret
+;
+; CHECK-PC-LABEL: func3:
+; CHECK-PC:       .seh_proc func3
+; CHECK-PC-NEXT:  // %bb.0:
+; CHECK-PC-NEXT:    str x30, [sp, #-16]! // 8-byte Folded Spill
+; CHECK-PC-NEXT:    .seh_save_reg_x x30, 16
+; CHECK-PC-NEXT:    .seh_endprologue
+; CHECK-PC-NEXT:    adrp x0, trampg
+; CHECK-PC-NEXT:    add x0, x0, :lo12:trampg
+; CHECK-PC-NEXT:    adrp x8, x64thunk_nest
+; CHECK-PC-NEXT:    add x8, x8, :lo12:x64thunk_nest
+; CHECK-PC-NEXT:    add x9, sp, #8
+; CHECK-PC-NEXT:    add x1, x0, #12
+; CHECK-PC-NEXT:    stp x9, x8, [x0, #16]
+; CHECK-PC-NEXT:    mov w8, #544 // =0x220
+; CHECK-PC-NEXT:    movk w8, #54815, lsl #16
+; CHECK-PC-NEXT:    str w8, [x0, #8]
+; CHECK-PC-NEXT:    mov x8, #132 // =0x84
+; CHECK-PC-NEXT:    movk x8, #22528, lsl #16
+; CHECK-PC-NEXT:    movk x8, #177, lsl #32
+; CHECK-PC-NEXT:    movk x8, #22528, lsl #48
+; CHECK-PC-NEXT:    str x8, [x0]
+; CHECK-PC-NEXT:    bl __clear_cache
+; CHECK-PC-NEXT:    mov x0, xzr
+; CHECK-PC-NEXT:    .seh_startepilogue
+; CHECK-PC-NEXT:    ldr x30, [sp], #16 // 8-byte Folded Reload
+; CHECK-PC-NEXT:    .seh_save_reg_x x30, 16
+; CHECK-PC-NEXT:    .seh_endepilogue
+; CHECK-PC-NEXT:    ret
+; CHECK-PC-NEXT:    .seh_endfunclet
+; CHECK-PC-NEXT:    .seh_endproc
+;
+; CHECK-APPLE-LABEL: func3:
+; CHECK-APPLE:       ; %bb.0:
+; CHECK-APPLE-NEXT:    sub sp, sp, #32
+; CHECK-APPLE-NEXT:    stp x29, x30, [sp, #16] ; 16-byte Folded Spill
+; CHECK-APPLE-NEXT:    .cfi_def_cfa_offset 32
+; CHECK-APPLE-NEXT:    .cfi_offset w30, -8
+; CHECK-APPLE-NEXT:    .cfi_offset w29, -16
+; CHECK-APPLE-NEXT:  Lloh6:
+; CHECK-APPLE-NEXT:    adrp x8, _x64thunk_nest@GOTPAGE
+; CHECK-APPLE-NEXT:    mov w9, #544 ; =0x220
+; CHECK-APPLE-NEXT:  Lloh7:
+; CHECK-APPLE-NEXT:    adrp x0, _trampg@PAGE
+; CHECK-APPLE-NEXT:  Lloh8:
+; CHECK-APPLE-NEXT:    add x0, x0, _trampg@PAGEOFF
+; CHECK-APPLE-NEXT:  Lloh9:
+; CHECK-APPLE-NEXT:    ldr x8, [x8, _x64thunk_nest@GOTPAGEOFF]
+; CHECK-APPLE-NEXT:    movk w9, #54815, lsl #16
+; CHECK-APPLE-NEXT:    str w9, [x0, #8]
+; CHECK-APPLE-NEXT:    add x9, sp, #8
+; CHECK-APPLE-NEXT:    add x1, x0, #12
+; CHECK-APPLE-NEXT:    stp x9, x8, [x0, #16]
+; CHECK-APPLE-NEXT:    mov x8, #132 ; =0x84
+; CHECK-APPLE-NEXT:    movk x8, #22528, lsl #16
+; CHECK-APPLE-NEXT:    movk x8, #177, lsl #32
+; CHECK-APPLE-NEXT:    movk x8, #22528, lsl #48
+; CHECK-APPLE-NEXT:    str x8, [x0]
+; CHECK-APPLE-NEXT:    bl ___clear_cache
+; CHECK-APPLE-NEXT:    ldp x29, x30, [sp, #16] ; 16-byte Folded Reload
+; CHECK-APPLE-NEXT:    mov x0, xzr
+; CHECK-APPLE-NEXT:    add sp, sp, #32
+; CHECK-APPLE-NEXT:    ret
+; CHECK-APPLE-NEXT:    .loh AdrpAdd Lloh7, Lloh8
+; CHECK-APPLE-NEXT:    .loh AdrpLdrGot Lloh6, Lloh9
+  %val = alloca i64
+  call void @llvm.init.trampoline(ptr @trampg, ptr @x64thunk_nest, ptr %val)
+  %fp = call ptr @llvm.adjust.trampoline(ptr @trampg)
+  ret i64 0
+}
+
 ; Check for the explicitly emitted .note.GNU-stack section (ELF only) in the
 ; presence of trampolines.
 ; UTC_ARGS: --disable

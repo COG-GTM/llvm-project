@@ -51,8 +51,9 @@ llvm::Triple::ArchType darwin::getArchTypeForMachOArchName(StringRef Str) {
   // handling to the architecture name, so we need to be careful before removing
   // support for it.
 
-  // This code must be kept in sync with Clang's Darwin specific argument
-  // translation.
+  // This code must be kept in sync with the -arch spelling translation in
+  // MachO::TranslateArgs, which maps each accepted name to -march=/-mcpu=.
+  // Driver::BuildUniversalActions rejects any -arch name not listed here.
 
   return llvm::StringSwitch<llvm::Triple::ArchType>(Str)
       .Cases({"i386", "i486", "i486SX", "i586", "i686"}, llvm::Triple::x86)
@@ -3148,8 +3149,8 @@ DerivedArgList *MachO::TranslateArgs(const DerivedArgList &Args,
     const Option MCpu = Opts.getOption(options::OPT_mcpu_EQ);
     const Option MArch = Opts.getOption(options::OPT_march_EQ);
 
-    // This code must be kept in sync with LLVM's getArchTypeForDarwinArch,
-    // which defines the list of which architectures we accept.
+    // This code must be kept in sync with darwin::getArchTypeForMachOArchName
+    // above, which defines the list of -arch names the driver accepts.
     if (Name == "ppc")
       ;
     else if (Name == "ppc601")

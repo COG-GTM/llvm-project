@@ -1,3 +1,7 @@
+# Builds the llvm-testing-tools package on pull requests and uploads it as a
+# workflow artifact. This workflow does not publish to PyPI; see
+# llvm/utils/llvm-testing-tools/README.md for how releases are published and
+# which platforms the bundled binaries support.
 name: Release llvm-testing-tools
 
 permissions:

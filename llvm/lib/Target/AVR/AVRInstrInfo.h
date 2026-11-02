@@ -28,7 +28,7 @@ class AVRSubtarget;
 namespace AVRCC {
 
 /// AVR specific condition codes.
-/// These correspond to `AVR_*_COND` in `AVRInstrInfo.td`.
+/// These correspond to `AVR_COND_*` in `AVRInstrInfo.td`.
 /// They must be kept in synch.
 enum CondCodes {
   COND_EQ, //!< Equal

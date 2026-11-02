@@ -45,5 +45,7 @@ apply, and may also add additional ones.
 See
 [`worker.py`](https://github.com/llvm/llvm-project/blob/main/.ci/buildbot/worker.py)
 or a
-[reference script](https://github.com/llvm/llvm-project/blob/main/polly/polly-x86_64-linux-test-suite)
-for further details.
+[reference script](https://github.com/llvm/llvm-project/blob/main/polly/ci/polly-x86_64-linux-test-suite.py)
+for further details. Worker scripts for other builders are located in the
+`ci/` subdirectory of the respective project, e.g.
+[`polly/ci/`](https://github.com/llvm/llvm-project/tree/main/polly/ci).

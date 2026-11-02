@@ -203,12 +203,30 @@ class TestComputeProjects(unittest.TestCase):
         )
         self.assertEqual(env_variables["projects_to_build"], "clang;flang;llvm;mlir")
         self.assertEqual(
-            env_variables["project_check_targets"], "check-flang check-mlir"
+            env_variables["project_check_targets"],
+            "check-clang-cir check-flang check-mlir",
         )
         self.assertEqual(env_variables["runtimes_to_build"], "")
         self.assertEqual(env_variables["runtimes_check_targets"], "")
         self.assertEqual(env_variables["runtimes_check_targets_needs_reconfig"], "")
-        self.assertEqual(env_variables["enable_cir"], "OFF")
+        self.assertEqual(env_variables["enable_cir"], "ON")
+
+    def test_mlir_windows(self):
+        env_variables = compute_projects.get_env_variables(
+            ["mlir/lib/IR/Builders.cpp"], "Windows"
+        )
+        self.assertEqual(env_variables["projects_to_build"], "clang;llvm;mlir")
+        self.assertEqual(
+            env_variables["project_check_targets"], "check-clang-cir check-mlir"
+        )
+        self.assertEqual(env_variables["enable_cir"], "ON")
+
+    def test_cir_dependencies_select_cir(self):
+        # CIR is built on top of mlir, so changes to mlir must test CIR. clang
+        # is deliberately exempt (see the comment on DEPENDENTS_TO_TEST).
+        self.assertIn("mlir", compute_projects.PROJECT_DEPENDENCIES["CIR"])
+        self.assertIn("CIR", compute_projects.DEPENDENTS_TO_TEST["mlir"])
+        self.assertNotIn("CIR", compute_projects.DEPENDENTS_TO_TEST["clang"])
 
     def test_flang(self):
         env_variables = compute_projects.get_env_variables(

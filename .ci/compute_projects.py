@@ -50,8 +50,14 @@ DEPENDENTS_TO_TEST = {
         "flang",
     },
     "lld": {"bolt", "cross-project-tests"},
+    # CIR depends on clang and mlir (see PROJECT_DEPENDENCIES). It is tested on
+    # mlir changes, which already build clang for flang, so it only adds
+    # CLANG_ENABLE_CIR and check-clang-cir. It is intentionally not tested on
+    # clang (or llvm) changes: that would add a full mlir build to every clang
+    # PR. Changes under clang/{lib,test,include/clang}/CIR select CIR directly
+    # through META_PROJECTS.
     "clang": {"clang-tools-extra", "cross-project-tests", "lldb"},
-    "mlir": {"flang"},
+    "mlir": {"CIR", "flang"},
     # Test everything if ci scripts are changed.
     ".ci": {
         "llvm",

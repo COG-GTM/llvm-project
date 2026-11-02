@@ -32,6 +32,7 @@ static_library("Object") {
     "GOFFObjectFile.cpp",
     "IRObjectFile.cpp",
     "IRSymtab.cpp",
+    "MachOCodeSignature.cpp",
     "MachOObjectFile.cpp",
     "MachOUniversal.cpp",
     "MachOUniversalWriter.cpp",

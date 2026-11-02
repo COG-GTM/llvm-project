@@ -26,35 +26,12 @@
 #include "llvm/Support/Parallel.h"
 #include "llvm/Support/xxhash.h"
 
-#if defined(__APPLE__)
-#include <sys/mman.h>
-
-#define COMMON_DIGEST_FOR_OPENSSL
-#include <CommonCrypto/CommonDigest.h>
-#else
-#include "llvm/Support/SHA256.h"
-#endif
-
 using namespace llvm;
 using namespace llvm::MachO;
 using namespace llvm::support;
 using namespace llvm::support::endian;
 using namespace lld;
 using namespace lld::macho;
-
-// Reads `len` bytes at data and writes the 32-byte SHA256 checksum to `output`.
-static void sha256(const uint8_t *data, size_t len, uint8_t *output) {
-#if defined(__APPLE__)
-  // FIXME: Make LLVM's SHA256 faster and use it unconditionally. See PR56121
-  // for some notes on this.
-  CC_SHA256(data, len, output);
-#else
-  ArrayRef<uint8_t> block(data, len);
-  std::array<uint8_t, 32> hash = SHA256::hash(block);
-  static_assert(hash.size() == CodeSignatureSection::hashSize);
-  memcpy(output, hash.data(), hash.size());
-#endif
-}
 
 InStruct macho::in;
 std::vector<SyntheticSection *> macho::syntheticSections;
@@ -1562,12 +1539,9 @@ void StringTableSection::writeTo(uint8_t *buf) const {
   }
 }
 
-static_assert((CodeSignatureSection::blobHeadersSize % 8) == 0);
-static_assert((CodeSignatureSection::fixedHeadersSize % 8) == 0);
-
 CodeSignatureSection::CodeSignatureSection()
     : LinkEditSection(segment_names::linkEdit, section_names::codeSignature) {
-  align = 16; // required by libstuff
+  align = object::MachOAdHocCodeSignature::Align; // required by libstuff
 
   // XXX: This mimics LD64, where it uses the install-name as codesign
   // identifier, if available.
@@ -1580,85 +1554,20 @@ CodeSignatureSection::CodeSignatureSection()
   size_t slashIndex = fileName.rfind("/");
   if (slashIndex != std::string::npos)
     fileName = fileName.drop_front(slashIndex + 1);
-
-  // NOTE: Any changes to these calculations should be repeated
-  // in llvm-objcopy's MachOLayoutBuilder::layoutTail.
-  allHeadersSize = alignTo<16>(fixedHeadersSize + fileName.size() + 1);
-  fileNamePad = allHeadersSize - fixedHeadersSize - fileName.size();
-}
-
-uint32_t CodeSignatureSection::getBlockCount() const {
-  return (fileOff + blockSize - 1) / blockSize;
 }
 
 uint64_t CodeSignatureSection::getRawSize() const {
-  return allHeadersSize + getBlockCount() * hashSize;
+  return getSignature().getRawSize();
 }
 
 void CodeSignatureSection::writeHashes(uint8_t *buf) const {
-  // NOTE: Changes to this functionality should be repeated in llvm-objcopy's
-  // MachOWriter::writeSignatureData.
-  uint8_t *hashes = buf + fileOff + allHeadersSize;
-  parallelFor(0, getBlockCount(), [&](size_t i) {
-    sha256(buf + i * blockSize,
-           std::min(static_cast<size_t>(fileOff - i * blockSize), blockSize),
-           hashes + i * hashSize);
-  });
-#if defined(__APPLE__)
-  // This is macOS-specific work-around and makes no sense for any
-  // other host OS. See https://openradar.appspot.com/FB8914231
-  //
-  // The macOS kernel maintains a signature-verification cache to
-  // quickly validate applications at time of execve(2).  The trouble
-  // is that for the kernel creates the cache entry at the time of the
-  // mmap(2) call, before we have a chance to write either the code to
-  // sign or the signature header+hashes.  The fix is to invalidate
-  // all cached data associated with the output file, thus discarding
-  // the bogus prematurely-cached signature.
-  msync(buf, fileOff + getSize(), MS_INVALIDATE);
-#endif
+  getSignature().writeHashes(buf);
 }
 
 void CodeSignatureSection::writeTo(uint8_t *buf) const {
-  // NOTE: Changes to this functionality should be repeated in llvm-objcopy's
-  // MachOWriter::writeSignatureData.
-  uint32_t signatureSize = static_cast<uint32_t>(getSize());
-  auto *superBlob = reinterpret_cast<CS_SuperBlob *>(buf);
-  write32be(&superBlob->magic, CSMAGIC_EMBEDDED_SIGNATURE);
-  write32be(&superBlob->length, signatureSize);
-  write32be(&superBlob->count, 1);
-  auto *blobIndex = reinterpret_cast<CS_BlobIndex *>(&superBlob[1]);
-  write32be(&blobIndex->type, CSSLOT_CODEDIRECTORY);
-  write32be(&blobIndex->offset, blobHeadersSize);
-  auto *codeDirectory =
-      reinterpret_cast<CS_CodeDirectory *>(buf + blobHeadersSize);
-  write32be(&codeDirectory->magic, CSMAGIC_CODEDIRECTORY);
-  write32be(&codeDirectory->length, signatureSize - blobHeadersSize);
-  write32be(&codeDirectory->version, CS_SUPPORTSEXECSEG);
-  write32be(&codeDirectory->flags, CS_ADHOC | CS_LINKER_SIGNED);
-  write32be(&codeDirectory->hashOffset,
-            sizeof(CS_CodeDirectory) + fileName.size() + fileNamePad);
-  write32be(&codeDirectory->identOffset, sizeof(CS_CodeDirectory));
-  codeDirectory->nSpecialSlots = 0;
-  write32be(&codeDirectory->nCodeSlots, getBlockCount());
-  write32be(&codeDirectory->codeLimit, fileOff);
-  codeDirectory->hashSize = static_cast<uint8_t>(hashSize);
-  codeDirectory->hashType = kSecCodeSignatureHashSHA256;
-  codeDirectory->platform = 0;
-  codeDirectory->pageSize = blockSizeShift;
-  codeDirectory->spare2 = 0;
-  codeDirectory->scatterOffset = 0;
-  codeDirectory->teamOffset = 0;
-  codeDirectory->spare3 = 0;
-  codeDirectory->codeLimit64 = 0;
   OutputSegment *textSeg = getOrCreateOutputSegment(segment_names::text);
-  write64be(&codeDirectory->execSegBase, textSeg->fileOff);
-  write64be(&codeDirectory->execSegLimit, textSeg->fileSize);
-  write64be(&codeDirectory->execSegFlags,
-            config->outputType == MH_EXECUTE ? CS_EXECSEG_MAIN_BINARY : 0);
-  auto *id = reinterpret_cast<char *>(&codeDirectory[1]);
-  memcpy(id, fileName.begin(), fileName.size());
-  memset(id + fileName.size(), 0, fileNamePad);
+  getSignature().writeHeaders(buf, textSeg->fileOff, textSeg->fileSize,
+                              config->outputType == MH_EXECUTE);
 }
 
 CStringSection::CStringSection(const char *name)

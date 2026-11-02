@@ -17,6 +17,7 @@ unittest("ObjectTests") {
     "ELFTest.cpp",
     "ELFTypesTest.cpp",
     "GOFFObjectFileTest.cpp",
+    "MachOCodeSignatureTest.cpp",
     "MinidumpTest.cpp",
     "ObjectFileTest.cpp",
     "OffloadingBundleTest.cpp",

@@ -10467,20 +10467,23 @@ libc_function(
     ],
 )
 
-#TODO: Enable once fullbuild is added to bazel, since this depends on a macro
-# definition in the public header
-
-# libc_function(
-#     name = "syscall",
-#     srcs = ["src/unistd/linux/syscall.cpp"],
-#     hdrs = ["src/unistd/syscall.h"],
-#     deps = [
-#         ":__support_common",
-#         ":__support_osutil_syscall",
-#         ":errno",
-#         ":hdr_unistd_macros",
-#     ],
-# )
+# Provides `LIBC_NAMESPACE::__llvm_libc_syscall`. The variadic `syscall(...)`
+# wrapper macro lives in the public <unistd.h> (full build only), so callers in
+# overlay mode must call `__llvm_libc_syscall` directly. See the `syscall_test`
+# note in libc/test/src/unistd/BUILD.bazel.
+libc_function(
+    name = "syscall",
+    srcs = ["src/unistd/linux/syscall.cpp"],
+    hdrs = ["src/unistd/syscall.h"],
+    deps = [
+        ":__support_common",
+        ":__support_libc_errno",
+        ":__support_macros_config",
+        ":__support_osutil_syscall",
+        ":errno",
+        ":hdr_unistd_macros",
+    ],
+)
 
 libc_function(
     name = "swab",

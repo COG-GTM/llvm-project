@@ -91,8 +91,10 @@ binaries you already have instead, set all four of ``SPIRV_VAL``, ``SPIRV_AS``,
 built from source. Prebuilt tools that are older than SPIRV-Tools ``main`` can
 give different validation results from the premerge check.
 
-The ``spirv-tools`` lit feature is set only when the option is enabled. Run lit
-with ``-v`` on an individual test to see whether its guarded ``RUN`` lines ran.
+The ``spirv-tools`` lit feature is set only when the option is enabled. To check
+whether a test's guarded ``RUN`` lines ran, run it with ``llvm-lit -a``. When the
+option is disabled, those lines are reported as ``has no command after
+substitutions``.
 
 Compiler Options
 ================

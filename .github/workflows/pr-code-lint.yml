@@ -8,6 +8,8 @@ on:
     branches:
       - main
       - 'users/**'
+    # Keep in sync with _should_lint_file in llvm/utils/git/code-lint-helper.py
+    # and the "Code lint (clang-tidy) scope" section in llvm/docs/GitHub.rst.
     paths:
       - 'clang-tools-extra/clang-tidy/**'
       - 'clang-tools-extra/docs/clang-tidy/**'

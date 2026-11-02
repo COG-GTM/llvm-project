@@ -207,6 +207,8 @@ python3 clang-tools-extra/clang-tidy/tool/clang-tidy-diff.py \
 
     def _should_lint_file(self, filepath: str) -> bool:
         # TODO: Add more rules when enabling other projects to use clang-tidy in CI.
+        # Keep in sync with the `paths` filter in .github/workflows/pr-code-lint.yml
+        # and the "Code lint (clang-tidy) scope" section in llvm/docs/GitHub.rst.
         return filepath.startswith("clang-tools-extra/clang-tidy/")
 
     def run_linter_tool(self, files_to_lint: Sequence[str], args: LintArgs) -> str:

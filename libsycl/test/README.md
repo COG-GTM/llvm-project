@@ -8,10 +8,39 @@ for more information about LIT.
 
 ## Prerequisites
 
-* Target runtime(s) to execute tests on devices.
-  TODO: add link to liboffload instruction once they add it.
 * Compiler & libsycl. Can be built following these
-  [instructions](/libsycl/docs/index.rst).
+  [instructions](/libsycl/docs/index.rst). This also builds the `sycl-ls`
+  tool, which the test configuration requires: `llvm-lit` stops with
+  "can't find `sycl-ls`" if it is not in the compiler's `bin` directory or the
+  LLVM tools directory.
+* Target runtime(s) to execute tests on devices. libsycl runs on top of
+  liboffload (`offload` in `LLVM_ENABLE_RUNTIMES`), and the only device
+  currently supported for testing is a **Level Zero GPU** (`level_zero:gpu` in
+  `sycl-ls` output). This requires:
+  * liboffload built with the Level Zero plugin
+    (`-DLIBOMPTARGET_PLUGINS_TO_BUILD=level_zero`, see
+    `offload/cmake/Modules/LibomptargetGetDependencies.cmake`);
+  * the Level Zero loader and GPU driver installed on the host;
+  * the runtime libraries being discoverable when tests run. `LD_LIBRARY_PATH`
+    from the host environment is propagated to tests; extra locations can be
+    added with the `extra_environment` / `extra_system_environment` parameters
+    (see [llvm-lit parameters](#llvm-lit-parameters)).
+
+  Running `sycl-ls` from the build directory is a quick way to check the
+  setup: it should list at least one `[level_zero:gpu]` device.
+
+### Running without a supported device
+
+Once `sycl-ls` is found, device detection never fails the test run:
+
+* If `sycl-ls` exits with an error (for example because liboffload or one of
+  its plugins cannot be loaded), `llvm-lit` prints a warning with the error
+  output and continues as if no device were available.
+* Devices other than `level_zero:gpu` (e.g. `opencl`, `cuda`, `hip` or CPU
+  devices) are reported with a warning and ignored.
+
+In both cases tests marked `REQUIRES: any-device` (or another device feature)
+are reported as `UNSUPPORTED`, while tests that do not need a device still run.
 
 ## Run the tests
 
@@ -58,6 +87,10 @@ environment:
 * `any-device` - presence of at least 1 supported device;
 * `any-device-is-gpu` - device type to be available;
 * `any-device-is-level_zero` - backend to be available;
+
+Devices are detected by running `sycl-ls` once when the test configuration is
+loaded. Only supported devices (currently `level_zero:gpu`) contribute these
+features; see [Running without a supported device](#running-without-a-supported-device).
 
 Note: the `sycl-ls` tool doesn't have an assigned feature since it is essential for
 test configuration and is always available.

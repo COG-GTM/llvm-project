@@ -141,7 +141,12 @@ sycl_ls = FindTool("sycl-ls").resolve(
     llvm_config, os.pathsep.join([config.libsycl_bin_dir, config.llvm_tools_dir])
 )
 if not sycl_ls:
-    lit_config.fatal("can't find `sycl-ls`")
+    lit_config.fatal(
+        "can't find `sycl-ls` in {} or {}; it is built together with libsycl "
+        "(LLVM_ENABLE_RUNTIMES=...;libsycl), see libsycl/test/README.md".format(
+            config.libsycl_bin_dir, config.llvm_tools_dir
+        )
+    )
 
 tools = [
     ToolSubst("FileCheck", unresolved="ignore"),
@@ -160,27 +165,60 @@ llvm_config.add_tool_substitutions(
     tools, [config.libsycl_bin_dir, config.llvm_tools_dir, os.environ.get("PATH", "")]
 )
 
+# Backends and device types libsycl can currently run tests on. Any other
+# device reported by sycl-ls is ignored so that `any-device` gated tests are
+# reported as UNSUPPORTED instead of failing the whole configuration.
+supported_devices = {
+    "level_zero": {"gpu"},
+}
+
 lit_config.note("Targeted devices: all")
 with test_env():
-    sycl_ls_output = subprocess.check_output(sycl_ls, text=True, shell=True)
+    sycl_ls_result = subprocess.run(
+        sycl_ls, shell=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
 
-    devices = set()
-    for line in sycl_ls_output.splitlines():
-        if not line.startswith("["):
+detected_devices = set()
+if sycl_ls_result.returncode != 0:
+    sycl_ls_stderr = sycl_ls_result.stderr.strip()
+    lit_config.warning(
+        "`{}` failed with exit code {}; assuming no devices are available, "
+        "tests that require a device will be UNSUPPORTED. Check that liboffload "
+        "and its level_zero plugin are built and can be found via "
+        "LD_LIBRARY_PATH (see libsycl/test/README.md).{}".format(
+            sycl_ls,
+            sycl_ls_result.returncode,
+            " Output:\n" + sycl_ls_stderr if sycl_ls_stderr else "",
+        )
+    )
+else:
+    for line in sycl_ls_result.stdout.splitlines():
+        if not line.startswith("[") or "]" not in line:
             continue
-        backend, device = line[1:].split("]")[0].split(":")
-        devices.add("{}:{}".format(backend, device))
-    libsycl_devices = list(devices)
+        backend, _, device = line[1:].split("]", 1)[0].partition(":")
+        detected_devices.add((backend, device))
 
-available_devices = {
-    "level_zero": "gpu",
-}
-for d in libsycl_devices:
-    be, dev = d.split(":")
-    if be not in available_devices:
-        lit_config.error("Unsupported device {}".format(d))
-    if dev not in available_devices[be]:
-        lit_config.error("Unsupported device {}".format(d))
+libsycl_devices = []
+for be, dev in sorted(detected_devices):
+    if dev in supported_devices.get(be, ()):
+        libsycl_devices.append("{}:{}".format(be, dev))
+    else:
+        lit_config.warning(
+            "Ignoring unsupported device {}:{}; supported devices: {}".format(
+                be,
+                dev,
+                ", ".join(
+                    "{}:{}".format(b, d)
+                    for b, ds in sorted(supported_devices.items())
+                    for d in sorted(ds)
+                ),
+            )
+        )
+
+if not libsycl_devices:
+    lit_config.note(
+        "No supported devices found; tests that require a device will be UNSUPPORTED"
+    )
 
 if len(libsycl_devices) > 0:
     config.available_features.add("any-device")

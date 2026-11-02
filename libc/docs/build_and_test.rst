@@ -44,6 +44,31 @@ The libc can be built and tested in two different modes:
 
         $> ninja libc-shared-tests
 
+Math tests and MPFR
+===================
+
+Many math unit tests compare against the
+`GNU MPFR library <https://www.mpfr.org/>`_.
+In overlay mode, CMake looks for MPFR (and GMP) on the default system paths, or
+in ``LLVM_LIBC_MPFR_INSTALL_PATH`` if it is set. On Debian/Ubuntu:
+
+.. code-block:: sh
+
+  $> sudo apt-get install libmpfr-dev libgmp-dev libmpc-dev
+
+MPFR **4.2.0 or newer** is required for full coverage. Older versions lack the
+correctly rounded ``acospi``, ``asinpi``, ``atanpi``, ``cospi``, ``sinpi``,
+``tanpi``, ``exp2m1``, ``exp10m1``, ``log2p1`` and ``log10p1``, so the tests for
+those functions are checked against approximate reference implementations
+instead. CMake reports the MPFR version it found and warns when it is older
+than 4.2.0. Pass ``-DLLVM_LIBC_MPFR_STRICT_VERSION=ON`` to turn that warning
+into a configuration error (the pre-commit Linux CI does this). Ubuntu 24.04
+and newer ship a recent enough MPFR. On older distributions, build MPFR from
+source and point ``LLVM_LIBC_MPFR_INSTALL_PATH`` at the install prefix.
+
+Tests that need MPFR are skipped when MPFR is not found, and in full build and
+GPU builds.
+
 Building with VSCode
 ====================
 

@@ -393,16 +393,56 @@ Tag the final release sources:
 Update the LLVM Website
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-The website must be updated before the release announcement is sent out.  Here
-is what to do:
+The website must be updated before the release announcement is sent out.
 
-#. Check out the `www-releases <https://github.com/llvm/www-releases>`_ repo
-   from GitHub.
+The release documentation is built and proposed for ``www-releases``
+automatically.  Pushing an ``llvmorg-X.Y.Z`` tag (see :ref:`tag`) runs the
+``.github/workflows/release-tasks.yml`` workflow, which calls
+``.github/workflows/release-documentation.yml`` with ``upload: true``.  That
+workflow:
 
-#. Create a new sub-directory ``X.Y.Z`` in the releases directory.
+* Builds the Sphinx documentation for the tagged sources with
+  ``llvm/utils/release/build-docs.sh -release X.Y.Z -no-doxygen`` and attaches
+  the result to the workflow run as the ``release-notes`` artifact.
 
-#. Copy and commit the ``llvm/docs`` and ``LICENSE.txt`` files into this new
-   directory.
+* Only uploads final releases.  The upload steps are skipped when the
+  ``upload`` input is false or the release version contains ``rc``, so release
+  candidate tags (``llvmorg-X.Y.Z-rcN``) build the documentation but do not
+  touch ``www-releases``.
+
+* Clones `www-releases <https://github.com/llvm/www-releases>`_, copies the
+  built HTML into a new ``X.Y.Z`` directory, force-pushes it as the ``X.Y.Z``
+  branch of the ``llvmbot/www-releases`` fork and opens a pull request from
+  ``llvmbot:X.Y.Z`` against ``main`` of ``www-releases``.
+
+The upload job runs in the ``release`` GitHub environment of the
+``llvm-project`` repository, so any protection rules configured on that
+environment (for example required reviewers) must be satisfied before it runs.
+It needs two secrets, which are expected to be available to that job:
+
+* ``LLVMBOT_WWW_RELEASES_PUSH``: token used to push the ``X.Y.Z`` branch to the
+  ``llvmbot/www-releases`` fork.
+
+* ``WWW_RELEASES_TOKEN``: token used by ``gh pr create`` to open the pull
+  request against ``www-releases``.
+
+If either secret is missing or expired, or the ``release`` environment blocks
+the job, the "Upload Release Notes" step fails and no pull request is created.
+The documentation can be republished by re-running the failed job, or by
+running the "Release Documentation" workflow manually (``workflow_dispatch``)
+with the release version and ``upload`` checked.  As a last resort, build the
+documentation locally with
+``llvm/utils/release/build-docs.sh -release X.Y.Z -no-doxygen`` and open the
+``www-releases`` pull request by hand with the contents of
+``docs-build/html-export/`` in a new ``X.Y.Z`` directory.  Do not open a manual
+pull request while the automated one exists, to avoid duplicate or conflicting
+changes.
+
+The remaining steps are still manual:
+
+#. Review and merge the automated ``www-releases`` pull request for ``X.Y.Z``.
+   The workflow only adds the built HTML documentation; add ``LICENSE.txt``
+   to the ``X.Y.Z`` directory as well.
 
 #. Update the ``releases/download.html`` file with links to the release
    binaries on GitHub.
@@ -410,9 +450,10 @@ is what to do:
 #. Update the ``releases/index.html`` with the new release and link to release
    documentation.
 
-#. After you push the changes to the ``www-releases`` repo, someone with admin
-   access must log in to ``prereleases-origin.llvm.org`` and manually pull the new
-   changes into ``/data/www-releases/``. This is where the website is served from.
+#. After the changes are merged into the ``www-releases`` repo, someone with
+   admin access must log in to ``prereleases-origin.llvm.org`` and manually
+   pull the new changes into ``/data/www-releases/``. This is where the
+   website is served from.
 
 #. Finally, check out the ``llvm-www`` repo and update the main page
    (``index.html`` and sidebar) to point to the new release and release

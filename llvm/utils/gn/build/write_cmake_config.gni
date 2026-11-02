@@ -3,6 +3,10 @@
 # write_cmake_config behaves like CMake's configure_file(), but runs at build
 # time, not at generator time.  See write_cmake_config.py for details.
 #
+# `values` must list exactly the keys that `input` references. When the CMake
+# template changes, update `values` to match; check_cmake_config_values.py
+# reports differences (see "Syncing GN files from CMake files" in README.rst).
+#
 # Parameters:
 #
 #   input (required) [string]
@@ -35,6 +39,8 @@ template("write_cmake_config") {
     args = [
              "-o",
              rebase_path(outputs[0], root_build_dir),
+             "--gn-target",
+             get_label_info(":$target_name", "label_no_toolchain"),
              rebase_path(sources[0], root_build_dir),
            ] + invoker.values
 

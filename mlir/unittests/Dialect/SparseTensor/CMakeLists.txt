@@ -1,7 +1,9 @@
 add_mlir_unittest(MLIRSparseTensorTests
   MergerTest.cpp
+  SparsifierOptionsTest.cpp
 )
 mlir_target_link_libraries(MLIRSparseTensorTests
   PRIVATE
+  MLIRSparseTensorPipelines
   MLIRSparseTensorUtils
 )

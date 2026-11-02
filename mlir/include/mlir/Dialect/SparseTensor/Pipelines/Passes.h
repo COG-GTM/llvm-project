@@ -26,9 +26,12 @@ namespace sparse_tensor {
 /// Options for the "sparsifier" pipeline.  So far this only contains
 /// a subset of the options that can be set for the underlying passes,
 /// because it must be manually kept in sync with the tablegen files
-/// for those passes.
+/// for those passes. mlir/unittests/Dialect/SparseTensor/
+/// SparsifierOptionsTest.cpp fails when a copy drifts from its definition.
 struct SparsifierOptions : public PassPipelineOptions<SparsifierOptions> {
-  // These options must be kept in sync with `SparsificationBase`.
+  // These options must be kept in sync with `SparsificationPass` and
+  // `SparsificationAndBufferization` (defined in
+  // include/mlir/Dialect/SparseTensor/Transforms/Passes.td).
   // TODO(57514): These options are duplicated in Passes.td.
   PassOptions::Option<mlir::SparseParallelizationStrategy> parallelization{
       *this, "parallelization-strategy",
@@ -93,8 +96,8 @@ struct SparsifierOptions : public PassPipelineOptions<SparsifierOptions> {
       *this, "vl", desc("Set the vector length (0 disables vectorization)"),
       init(0)};
 
-  // These options must be kept in sync with the `ConvertVectorToLLVM`
-  // (defined in include/mlir/Dialect/SparseTensor/Pipelines/Passes.h).
+  // These options must be kept in sync with `ConvertVectorToLLVMPass`
+  // (defined in include/mlir/Conversion/Passes.td).
   PassOptions::Option<bool> reassociateFPReductions{
       *this, "reassociate-fp-reductions",
       desc("Allows llvm to reassociate floating-point reductions for speed"),

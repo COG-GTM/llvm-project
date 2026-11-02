@@ -9,7 +9,7 @@
 #include "Inputs/cuda.h"
 #endif
 
-// Use the types we share with CodeGen tests.
+// Use the types we share with CodeGenCUDA/device-var-init.cu.
 #include "Inputs/cuda-initializers.h"
 
 __shared__ int s_v_i = 1;

@@ -1,5 +1,5 @@
 // CUDA struct types with interesting initialization properties.
-// Keep in sync with ../CodeGenCUDA/Inputs/cuda-initializers.h.
+// Canonical copy, also included by ../CodeGenCUDA/device-var-init.cu.
 
 // Base classes with different initializer variants.
 

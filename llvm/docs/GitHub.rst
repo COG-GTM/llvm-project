@@ -343,6 +343,46 @@ test failures directly linked to your changes. Our policy is still to keep the
 ``main`` branch in a good condition, and introducing failures to be fixed later
 violates that policy.
 
+.. _Code lint workflow:
+
+Code lint (clang-tidy) scope
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``Code lint`` workflow (``.github/workflows/pr-code-lint.yml``) runs
+``llvm/utils/git/code-lint-helper.py`` and posts its findings as a PR comment.
+It currently covers **only clang-tidy itself**:
+
+* The workflow is triggered only when a PR touches
+  ``clang-tools-extra/clang-tidy/**``, ``clang-tools-extra/docs/clang-tidy/**``
+  or the workflow file. It only runs in the ``llvm`` organization, not in forks.
+* clang-tidy is run on changed lines of C/C++ files
+  (``.c``, ``.cpp``, ``.cxx``, ``.h``, ``.hpp``, ``.hxx``) under
+  ``clang-tools-extra/clang-tidy/``.
+* doc8 is run on changed ``.rst`` files under
+  ``clang-tools-extra/docs/clang-tidy/``.
+
+PRs that change C/C++ code anywhere else (for example ``llvm/``, ``clang/``,
+``mlir/`` or ``lldb/``) get **no clang-tidy feedback before merge**. If you
+want it, run clang-tidy locally on the lines you changed. You need a build
+directory configured with ``-DCMAKE_EXPORT_COMPILE_COMMANDS=ON`` (and any
+generated headers built, e.g. the ``*-tablegen-targets``) and a
+``clang-tidy`` binary in your ``PATH``:
+
+.. code-block:: console
+
+  $ git diff -U0 origin/main...HEAD -- llvm/lib/Foo.cpp clang/lib/Bar.cpp |
+      python3 clang-tools-extra/clang-tidy/tool/clang-tidy-diff.py \
+        -path build -p1 -quiet
+
+This is the same command that the ``Code lint`` workflow runs. It uses the
+nearest ``.clang-tidy`` file, for example ``llvm/.clang-tidy`` or
+``clang/.clang-tidy``. To lint RST documentation of clang-tidy, run
+``doc8 -q --config clang-tools-extra/clang-tidy/doc8.ini <files>``.
+
+To extend CI linting to another project, change both
+``ClangTidyLintHelper._should_lint_file`` in ``code-lint-helper.py`` and the
+``paths`` filter in ``pr-code-lint.yml``, and update this section.
+
 Problems After Landing Your Change
 ==================================
 

@@ -226,6 +226,7 @@ static const Align kMinOriginAlignment = Align(4);
 static const Align kShadowTLSAlignment = Align(8);
 
 // These constants must be kept in sync with the ones in msan.h.
+// compiler-rt/test/msan/Linux/tls_abi_sizes.cpp checks that they match.
 // TODO: increase size to match SVE/SVE2/SME/SME2 limits
 static const unsigned kParamTLSSize = 800;
 static const unsigned kRetvalTLSSize = 800;

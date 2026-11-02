@@ -86,6 +86,10 @@ DEPENDENT_RUNTIMES_TO_TEST = {
     "flang": {"flang-rt"},
     "flang-rt": {"flang-rt"},
     ".ci": {"compiler-rt", "libc", "flang-rt", "libclc"},
+    # The instrumentation passes share ABI constants with the compiler-rt runtimes
+    # (e.g. the MSan TLS sizes checked by compiler-rt/test/msan/Linux/
+    # tls_abi_sizes.cpp), so a pass-only change must also run the runtime tests.
+    "instrumentation": {"compiler-rt"},
 }
 DEPENDENT_RUNTIMES_TO_TEST_NEEDS_RECONFIG = {
     "llvm": {"libcxx", "libcxxabi", "libunwind"},
@@ -185,10 +189,18 @@ META_PROJECTS = {
     (".github", "workflows", "premerge.yaml"): ".ci",
     ("third-party",): ".ci",
     ("llvm", "utils", "lit"): "lit",
+    ("llvm", "lib", "Transforms", "Instrumentation"): "instrumentation",
+    (
+        "llvm",
+        "include",
+        "llvm",
+        "Transforms",
+        "Instrumentation",
+    ): "instrumentation",
 }
 
 # Projects that should run tests but cannot be explicitly built.
-SKIP_BUILD_PROJECTS = ["CIR", "lit"]
+SKIP_BUILD_PROJECTS = ["CIR", "lit", "instrumentation"]
 
 # Projects that should not run any tests. These need to be metaprojects.
 SKIP_PROJECTS = ["docs", "gn"]

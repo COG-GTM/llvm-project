@@ -1,4 +1,23 @@
 #!/usr/bin/env python3
+"""lit ``%run`` wrapper for the Apple simulator sanitizer test suites.
+
+Runs a test binary on an already booted simulator with
+``xcrun simctl spawn --standalone``. The suites that use it
+(``check-asan-iossim-<arch>``, ``check-sanitizer-iossim-<arch>`` and similar)
+are not part of ``check-all``; see "Running tests on Apple simulators" in
+compiler-rt/docs/TestingGuide.rst.
+
+Environment variables:
+
+SANITIZER_IOSSIM_TEST_DEVICE_IDENTIFIER (required)
+    Simulator to run on, as accepted by ``xcrun simctl spawn``: a device UDID
+    or name from ``xcrun simctl list devices available``, or ``booted``.
+SANITIZER_IOSSIM_RUN_VERBOSE (optional)
+    If set to any non-empty value, print each command before running it.
+SANITIZER_IOSSIM_RUN_WAIT_FOR_DEBUGGER (optional)
+    If set to any non-empty value, pass ``--wait-for-debugger`` so the test
+    process stops at launch until a debugger attaches.
+"""
 
 import glob, os, shlex, sys, subprocess
 

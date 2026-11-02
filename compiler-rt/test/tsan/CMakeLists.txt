@@ -75,6 +75,7 @@ endforeach()
 # "check-tsan-iossim-x86_64" and similar. They also require an extra environment
 # variable to select which iOS device or simulator to use, e.g.:
 # SANITIZER_IOSSIM_TEST_DEVICE_IDENTIFIER="iPhone 6"
+# See "Running tests on Apple simulators" in compiler-rt/docs/TestingGuide.rst.
 if(APPLE)
   set(TSAN_TEST_TARGET_CC ${COMPILER_RT_TEST_COMPILER})
   set(TSAN_APPLE_PLATFORMS ${TSAN_SUPPORTED_OS})

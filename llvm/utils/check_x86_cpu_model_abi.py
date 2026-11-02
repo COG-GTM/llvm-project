@@ -41,7 +41,8 @@ COMPILER_RT_FEATURE_ALIASES = {
 # feature bits in total (see CodeGenFunction::EmitX86CpuSupports).
 MAX_FEATURE_BITS = 128
 
-_DEF_ENTRY_RE = re.compile(r"^\s*(X86_\w+)\s*\(([^)]*)\)")
+_DEF_ENTRY_RE = re.compile(r"^\s*(X86_\w+)\s*\(([^)]*)\)", re.M)
+_PP_DIRECTIVE_RE = re.compile(r"^[ \t]*#(?:[^\n]*\\\n)*[^\n]*", re.M)
 
 
 def _strip_comments(text):
@@ -59,21 +60,18 @@ def parse_def(path):
     """
     vendors, types, subtypes, features = [], [], [], []
     with open(path) as f:
-        for line in f:
-            line = line.split("//", 1)[0]
-            m = _DEF_ENTRY_RE.match(line)
-            if not m:
-                continue
-            macro = m.group(1)
-            args = [a.strip() for a in m.group(2).split(",")]
-            if macro == "X86_VENDOR":
-                vendors.append(args[0])
-            elif macro == "X86_CPU_TYPE":
-                types.append(args[0])
-            elif macro == "X86_CPU_SUBTYPE":
-                subtypes.append(args[0])
-            elif macro in ("X86_FEATURE_COMPAT", "X86_MICROARCH_LEVEL"):
-                features.append((args[0], int(args[3], 0)))
+        text = _PP_DIRECTIVE_RE.sub("", _strip_comments(f.read()))
+    for m in _DEF_ENTRY_RE.finditer(text):
+        macro = m.group(1)
+        args = [a.strip() for a in m.group(2).split(",")]
+        if macro == "X86_VENDOR":
+            vendors.append(args[0])
+        elif macro == "X86_CPU_TYPE":
+            types.append(args[0])
+        elif macro == "X86_CPU_SUBTYPE":
+            subtypes.append(args[0])
+        elif macro in ("X86_FEATURE_COMPAT", "X86_MICROARCH_LEVEL"):
+            features.append((args[0], int(args[3], 0)))
     return {
         "vendors": {name: i + 1 for i, name in enumerate(vendors)},
         "types": {name: i + 1 for i, name in enumerate(types)},

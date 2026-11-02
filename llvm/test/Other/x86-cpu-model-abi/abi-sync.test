@@ -14,7 +14,7 @@
 # TREE: OK: {{[0-9]+}} vendors, {{[0-9]+}} CPU types, {{[0-9]+}} CPU subtypes, {{[0-9]+}} features match
 
 ## The checker itself: matching inputs (incl. the LAHF_LM/SAHF and LM/64BIT
-## name aliases, comments and gaps) pass.
+## name aliases, comments, gaps and entries spanning lines) pass.
 # RUN: %python %llvm_src_root/utils/check_x86_cpu_model_abi.py \
 # RUN:   --def %S/Inputs/good.def --x86-c %S/Inputs/good.c \
 # RUN:   | FileCheck %s --check-prefix=GOOD
@@ -36,7 +36,8 @@
 # DRIFT-NEXT: error: feature SSE: ABI_VALUE 2 already used by MMX in X86TargetParser.def
 # DRIFT-NEXT: error: feature NEWF: ABI_VALUE 130 does not fit in the 128 bits of __cpu_features/__cpu_features2
 # DRIFT-NEXT: error: feature MMX: X86TargetParser.def ABI_VALUE 2 != compiler-rt FEATURE_MMX = 1
+# DRIFT-NEXT: error: feature NEWF2 (ABI_VALUE 124) is in X86TargetParser.def but missing from compiler-rt enum ProcessorFeatures
 # DRIFT-NEXT: error: feature NEWF (ABI_VALUE 130) is in X86TargetParser.def but missing from compiler-rt enum ProcessorFeatures
 # DRIFT-NEXT: error: feature FEATURE_ADX = 55 is in compiler-rt enum ProcessorFeatures but has no X86_FEATURE_COMPAT/X86_MICROARCH_LEVEL entry in X86TargetParser.def
 # DRIFT-NEXT: error: compiler-rt CPU_FEATURE_MAX = 56 must be greater than the largest X86TargetParser.def ABI_VALUE 130
-# DRIFT-NEXT: error: compiler-rt/lib/builtins/cpu_model/x86.c and X86TargetParser.def are out of sync (15 problem(s))
+# DRIFT-NEXT: error: compiler-rt/lib/builtins/cpu_model/x86.c and X86TargetParser.def are out of sync (16 problem(s))

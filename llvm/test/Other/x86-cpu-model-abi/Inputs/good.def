@@ -24,7 +24,8 @@ X86_CPU_SUBTYPE_ALIAS(INTEL_COREI7_NEHALEM, "foo")
 #endif
 X86_FEATURE_COMPAT(CMOV,  "cmov",  0, 0)
 X86_FEATURE_COMPAT(MMX,   "mmx",   1, 1)
-X86_FEATURE_COMPAT(ADX,   "adx",   0, 40)
+X86_FEATURE_COMPAT(ADX,   "adx",
+                   0, 40) // Spans lines.
 X86_FEATURE_COMPAT(SAHF,  "sahf",  0, 54)
 X86_FEATURE_COMPAT(64BIT, "64bit", 0, 55) // Also known as "LM"
 X86_MICROARCH_LEVEL(X86_64_BASELINE, "x86-64", 0, 95)

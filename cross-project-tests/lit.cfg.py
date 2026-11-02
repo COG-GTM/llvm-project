@@ -309,6 +309,22 @@ def get_lldb_version_string():
     return match.group(1)
 
 
+def import_packaging_version(feature):
+    # The 'packaging' module is only needed to compare debugger versions. When
+    # it is unavailable, leave the version-gated feature unset rather than
+    # aborting the whole suite.
+    try:
+        from packaging import version
+    except ImportError:
+        lit_config.warning(
+            f"Python 'packaging' module not found; not setting the '{feature}' "
+            "feature. Install it (e.g. 'pip install packaging') to enable "
+            "debugger version checks."
+        )
+        return None
+    return version
+
+
 def set_lldb_formatters_compatibility_feature():
     current_lldb_version = get_lldb_version_string()
     if not current_lldb_version:
@@ -322,10 +338,8 @@ def set_lldb_formatters_compatibility_feature():
         # which some LLVM data formatters depend on.
         min_required_lldb_version = "19.0.0"
 
-    try:
-        from packaging import version
-    except:
-        lit_config.fatal("Running lldb tests requires the packaging package")
+    version = import_packaging_version("lldb-formatters-compatibility")
+    if version is None:
         return
 
     if version.parse(current_lldb_version) < version.parse(min_required_lldb_version):
@@ -341,10 +355,8 @@ def set_apple_lldb_pre_1000_feature():
     if not apple_lldb_vers:
         return
 
-    try:
-        from packaging import version
-    except:
-        lit_config.fatal("Running lldb tests requires the packaging package")
+    version = import_packaging_version("apple-lldb-pre-1000")
+    if version is None:
         return
 
     if version.parse(apple_lldb_vers) < version.parse("1000"):
@@ -371,11 +383,10 @@ else:
     )
 
 if dwarf_version_string and gdb_version_string:
+    version = None
     if int(dwarf_version_string) >= 5:
-        try:
-            from packaging import version
-        except:
-            lit_config.fatal("Running gdb tests requires the packaging package")
+        version = import_packaging_version("gdb-clang-incompatibility")
+    if version is not None:
         if version.parse(gdb_version_string) < version.parse("10.1"):
             # Example for llgdb-tests, which use lldb on darwin but gdb elsewhere:
             # XFAIL: !system-darwin && gdb-clang-incompatibility

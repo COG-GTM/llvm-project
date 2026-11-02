@@ -193,6 +193,12 @@ To run debugging information tests simply add the ``cross-project-tests``
 project to your ``LLVM_ENABLE_PROJECTS`` define on the cmake
 command-line.
 
+Some of these tests are enabled, disabled or marked as expected failures based
+on the version of the installed ``gdb`` or ``lldb``. These version checks need
+the Python `packaging <https://pypi.org/project/packaging/>`_ module (e.g.
+``pip install packaging``). If it is not installed, ``lit`` emits a warning and
+leaves the version-dependent features unset instead of running the checks.
+
 Regression test structure
 =========================
 

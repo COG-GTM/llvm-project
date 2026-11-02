@@ -141,7 +141,7 @@ by `build-ci-container.yml` and published as `ghcr.io/llvm/ci-ubuntu-24.04`
 
 ```bash
 cd llvm-project
-docker run --rm -it --privileged \
+docker run --rm -it \
   -v "$PWD":/home/gha/llvm-project -w /home/gha/llvm-project \
   ghcr.io/llvm/ci-ubuntu-24.04:latest bash
 
@@ -158,7 +158,13 @@ sccache --start-server
 
 Notes:
 
-- `--privileged` matches CI and is needed by the LLDB tests that disable ASLR.
+- CI also passes `--privileged`, which the LLDB tests that disable ASLR need.
+  It gives the container host-level access, so add it only when you need to
+  run the LLDB tests and you trust the change you are testing. Without it the
+  LLDB tests that disable ASLR fail; everything else behaves as in CI.
+- The checkout is bind-mounted read-write, so anything the build or tests run
+  can change files in it. Use a dedicated clone or worktree for changes you
+  don't trust.
 - The image runs as user `gha` (uid 1001). If your host uid differs, add
   `--user "$(id -u):$(id -g)"` or make the checkout writable for uid 1001.
 - Without the remote cache variables below, `sccache` only uses a local disk

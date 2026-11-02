@@ -50,6 +50,58 @@ Clang Commands
    Command: `clang –target=spirv64 input.cl`
    Description: Generates a SPIR-V file directly from an OpenCL kernel source file (`input.cl`).
 
+.. _spirv-testing:
+
+Testing
+=======
+
+The SPIR-V backend tests live in ``llvm/test/CodeGen/SPIRV`` and run with the
+``check-llvm-codegen-spirv`` target. Many of them also pass the generated binary
+to ``spirv-val`` (or ``spirv-as``, ``spirv-dis`` and ``spirv-link``) from
+`SPIRV-Tools <https://github.com/KhronosGroup/SPIRV-Tools>`_ in ``RUN`` lines
+guarded by ``%if spirv-tools``. These ``RUN`` lines only run when LLVM is
+configured with ``-DLLVM_INCLUDE_SPIRV_TOOLS_TESTS=ON``. The option defaults to
+``OFF``, and in that case the guarded ``RUN`` lines are skipped without any
+warning, so a test can pass locally and still fail validation in CI.
+
+The SPIR-V premerge check (``.github/workflows/spirv-tests.yml``) runs on
+``llvm/llvm-project`` pull requests that touch ``llvm/lib/Target/SPIRV`` or ``llvm/test/CodeGen/SPIRV``. To
+reproduce it locally, configure and test with:
+
+.. code-block:: console
+
+  $ cmake -GNinja \
+      -S llvm \
+      -B build \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLLVM_ENABLE_ASSERTIONS=ON \
+      -DLLVM_TARGETS_TO_BUILD="SPIRV" \
+      -DLLVM_INCLUDE_SPIRV_TOOLS_TESTS=ON
+  $ ninja -C build check-llvm-codegen-spirv
+
+The workflow also sets ``CMAKE_C_COMPILER_LAUNCHER`` and
+``CMAKE_CXX_COMPILER_LAUNCHER`` to ``sccache``, which only affects build caching.
+
+With ``LLVM_INCLUDE_SPIRV_TOOLS_TESTS=ON``, ``llvm/tools/spirv-tools`` clones
+the ``main`` branch of SPIRV-Tools and its dependencies and builds the tools
+during the build, which requires ``git``, Python and network access. To use
+binaries you already have instead, set all four of ``SPIRV_VAL``, ``SPIRV_AS``,
+``SPIRV_DIS`` and ``SPIRV_LINK`` to their paths, for example
+``-DSPIRV_VAL=/usr/bin/spirv-val``. If any of them is unset, SPIRV-Tools is
+built from source. Prebuilt tools that are older than SPIRV-Tools ``main`` can
+give different validation results from the premerge check.
+
+The ``spirv-tools`` lit feature is set only when the option is enabled. To check
+whether a test's guarded ``RUN`` lines ran, pass it to ``llvm-lit -a``, for
+example:
+
+.. code-block:: console
+
+  $ build/bin/llvm-lit -a llvm/test/CodeGen/SPIRV/instructions/scalar-integer-arithmetic.ll
+
+When the option is disabled, those lines are reported as ``has no command after
+substitutions``.
+
 Compiler Options
 ================
 

@@ -2532,7 +2532,9 @@ def GPU_DestroySpMatOp : GPU_Op<"destroy_sp_mat", [GPU_AsyncOpInterface]> {
 // CUSPARSE_OPERATION_TRANSPOSE           = 1,
 // CUSPARSE_OPERATION_CONJUGATE_TRANSPOSE = 2
 // } cusparseOperation_t;
-// TODO: find a proper way to keep them in sync?
+// The values are checked by static_asserts in
+// mlir/lib/Conversion/GPUCommon/GPUToLLVMConversion.cpp (this enum) and
+// mlir/lib/ExecutionEngine/CudaRuntimeWrappers.cpp (cusparseOperation_t).
 def GPU_TransposeMode : I32EnumAttr<"TransposeMode",
     "transpose mode of sparse matrix supported by sparse tensor ops",
     [

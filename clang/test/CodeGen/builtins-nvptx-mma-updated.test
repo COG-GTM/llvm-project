@@ -1,0 +1,6 @@
+// Check that builtins-nvptx-mma.cu matches the output of its generator.
+// If this fails, regenerate the test instead of editing it by hand:
+//   python builtins-nvptx-mma.py --ptx=71 --gpu-arch=80 > builtins-nvptx-mma.cu
+
+// RUN: %python %S/builtins-nvptx-mma.py --ptx=71 --gpu-arch=80 > %t.cu
+// RUN: diff --strip-trailing-cr %t.cu %S/builtins-nvptx-mma.cu

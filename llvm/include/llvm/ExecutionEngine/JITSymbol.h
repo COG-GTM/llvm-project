@@ -77,6 +77,10 @@ public:
   using UnderlyingType = uint8_t;
   using TargetFlagsType = uint8_t;
 
+  /// These values are serialized between the JIT and the executor, and must be
+  /// kept in sync with \c orc_rt::JITSymbolFlags in
+  /// compiler-rt/lib/orc/executor_symbol_def.h. This is checked by
+  /// llvm/unittests/ExecutionEngine/Orc/OrcRTJITSymbolFlagsTest.cpp.
   enum FlagNames : UnderlyingType {
     None = 0,
     HasError = 1U << 0,

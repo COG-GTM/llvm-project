@@ -365,6 +365,34 @@ generic-ubsan)
     generate-cmake -C "${MONOREPO_ROOT}/libcxx/cmake/caches/Generic-ubsan.cmake"
     check-runtimes
 ;;
+oss-fuzz)
+    # Smoke test of the OSS-Fuzz build in libcxx/utils/ci/oss-fuzz.sh: build the
+    # fuzzers the way OSS-Fuzz does (UBSan configuration, LIBCPP_OSS_FUZZ) and run
+    # each of them for a short time. OSS-Fuzz links against the
+    # toolchain's libc++, here we link against a freshly built one instead.
+    clean
+    generate-cmake-base \
+          -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi" \
+          -DLIBCXX_CXX_ABI=libcxxabi \
+          -DLIBCXXABI_USE_LLVM_UNWINDER=OFF
+    step "Building libc++ to link the fuzzers against"
+    ninja -vC "${BUILD_DIR}" install-cxx install-cxxabi
+
+    step "Building the fuzzers with oss-fuzz.sh"
+    (cd "${MONOREPO_ROOT}" &&
+        SANITIZER=undefined \
+        CXXFLAGS="-O1 -gline-tables-only -stdlib=libc++ -fsanitize=undefined -fno-sanitize-recover=undefined -fsanitize=fuzzer-no-link" \
+        LIB_FUZZING_ENGINE="-fsanitize=fuzzer -L${INSTALL_DIR}/lib -Wl,-rpath,${INSTALL_DIR}/lib" \
+        OUT="${BUILD_DIR}/fuzzers" \
+        BUILD="${BUILD_DIR}/oss-fuzz-build" \
+        INSTALL="${BUILD_DIR}/oss-fuzz-install" \
+        libcxx/utils/ci/oss-fuzz.sh)
+
+    step "Running the fuzzers"
+    for fuzzer in "${BUILD_DIR}"/fuzzers/*; do
+        "${fuzzer}" -seed=1 -max_total_time=20
+    done
+;;
 #
 # Various build configurations
 #

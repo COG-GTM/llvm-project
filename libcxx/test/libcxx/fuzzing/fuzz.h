@@ -114,6 +114,9 @@ bool fast_is_permutation(Iter1 first1, Iter1 last1, Iter2 first2) {
 //
 // Otherwise, when e.g. running the Lit tests, we define main() to run fuzzing
 // tests on a few inputs.
+//
+// See the "Fuzzing" section of libcxx/docs/TestingLibcxx.rst for how to build
+// the fuzzers like OSS-Fuzz does (libcxx/utils/ci/oss-fuzz.sh).
 #if !defined(LIBCPP_OSS_FUZZ)
 extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t*, std::size_t);
 

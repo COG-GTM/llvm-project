@@ -475,6 +475,89 @@ removed from the Standard. These tests should be written like:
    The new style is only intended to be used for new tests.
 
 
+Fuzzing
+=======
+
+libc++ is continuously fuzzed by `OSS-Fuzz <https://github.com/google/oss-fuzz>`_.
+The fuzzers are the tests in ``libcxx/test/libcxx/fuzzing``: each ``.pass.cpp`` file
+defines ``LLVMFuzzerTestOneInput`` and includes ``fuzz.h``. These tests are compiled
+in two different ways:
+
+- When they are run as part of the test suite with ``lit``, ``fuzz.h`` defines a ``main``
+  function which calls ``LLVMFuzzerTestOneInput`` on a few fixed inputs. This does
+  not exercise the fuzzing configuration used by OSS-Fuzz.
+- When they are built for OSS-Fuzz, ``LIBCPP_OSS_FUZZ`` is defined, ``fuzz.h`` does not
+  define ``main`` and each test is linked against a fuzzing engine like libFuzzer.
+
+The OSS-Fuzz build is defined by ``libcxx/utils/ci/oss-fuzz.sh``, which OSS-Fuzz runs
+from the root of the monorepo. It installs the libc++ headers only (target
+``install-cxx-headers``) and compiles each fuzzing test into ``${OUT}/<test-name>`` with
+``-std=c++20 -DLIBCPP_OSS_FUZZ -D_LIBCPP_HAS_NO_VENDOR_AVAILABILITY_ANNOTATIONS``. The
+fuzzers are linked against the libc++ library of the OSS-Fuzz toolchain. The script
+expects the following environment variables, which OSS-Fuzz normally provides:
+
+=====================  ========================================================================
+Variable               Meaning
+=====================  ========================================================================
+``CXX``                The C++ compiler, usually a recent Clang.
+``CXXFLAGS``           Compiler flags, including the sanitizer and coverage flags
+                       (e.g. ``-fsanitize=address -fsanitize=fuzzer-no-link``).
+``SANITIZER``          The sanitizer being built: ``address``, ``undefined``, ``memory``, etc.
+                       When it contains ``undefined``, the script also adds
+                       ``-fsanitize=unsigned-integer-overflow
+                       -fsanitize-trap=unsigned-integer-overflow``, so unsigned overflow in
+                       libc++ code is reported as a crash, which a local UBSan build does
+                       not do by default.
+``OUT``                The directory where the fuzzer executables are written.
+``LIB_FUZZING_ENGINE`` The flags used to link in the fuzzing engine
+                       (e.g. ``-fsanitize=fuzzer``).
+``BUILD``, ``INSTALL`` Optional. The CMake build directory and the directory the headers
+                       are installed into. They default to ``cxx_build_dir`` and
+                       ``cxx_install_dir`` in the current directory.
+=====================  ========================================================================
+
+Reproducing an OSS-Fuzz issue locally
+-------------------------------------
+
+The easiest way to reproduce a crash reported by OSS-Fuzz is to use the OSS-Fuzz
+tooling (``python infra/helper.py build_fuzzers`` and ``reproduce`` with the ``libcxx``
+project), which builds the fuzzers in the same Docker image as OSS-Fuzz.
+
+Otherwise, ``oss-fuzz.sh`` can be run directly with a Clang that provides the libFuzzer
+and sanitizer runtimes. Since the script only installs the headers, the fuzzers have
+to be linked against a libc++ library, either the one shipped with the compiler
+(``-stdlib=libc++``, like OSS-Fuzz does) or one you built. For example, to build the
+fuzzers in the UBSan configuration and link them against a just-built libc++:
+
+.. code-block:: bash
+
+  $ cmake -S runtimes -B build -G Ninja -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind" \
+          -DCMAKE_INSTALL_PREFIX=$PWD/build/install
+  $ ninja -C build install-cxx install-cxxabi install-unwind
+  $ CXX=clang++ SANITIZER=undefined \
+    CXXFLAGS="-O1 -gline-tables-only -stdlib=libc++ -fsanitize=undefined -fno-sanitize-recover=undefined -fsanitize=fuzzer-no-link" \
+    LIB_FUZZING_ENGINE="-fsanitize=fuzzer -L$PWD/build/install/lib -Wl,-rpath,$PWD/build/install/lib" \
+    OUT=$PWD/build/fuzzers BUILD=$PWD/build/oss-fuzz-build INSTALL=$PWD/build/oss-fuzz-install \
+    libcxx/utils/ci/oss-fuzz.sh
+
+To build the AddressSanitizer configuration instead, use ``SANITIZER=address`` and
+``-fsanitize=address`` in ``CXXFLAGS``. Each fuzzer can then be run on the test case
+from the OSS-Fuzz report, or fuzzed for a while:
+
+.. code-block:: bash
+
+  $ build/fuzzers/regex <path-to-testcase>       # reproduce a crash
+  $ build/fuzzers/regex -max_total_time=60       # fuzz for a minute
+
+The ``oss-fuzz`` configuration of ``libcxx/utils/ci/run-buildbot`` performs the steps
+above in the UBSan configuration and runs each fuzzer for a short time.
+It runs in the libc++ pre-merge CI, so changes to ``fuzz.h``, to the fuzzing tests or to
+``oss-fuzz.sh`` that break the OSS-Fuzz build are caught before they land:
+
+.. code-block:: bash
+
+  $ CC=clang CXX=clang++ libcxx/utils/ci/run-buildbot oss-fuzz
+
 Benchmarks
 ==========
 

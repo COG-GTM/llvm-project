@@ -31,8 +31,12 @@ static int regex_test(const std::uint8_t *data, std::size_t size) {
         return 0;
     }
 
-    auto match = std::regex_match(s, re);
-    (void)match;
+    try {
+        auto match = std::regex_match(s, re);
+        (void)match;
+    } catch (std::regex_error &) {
+        // matching may legitimately fail, e.g. with error_complexity
+    }
     return 0; // always pretend we succeeded -- we're only looking for crashes
 }
 

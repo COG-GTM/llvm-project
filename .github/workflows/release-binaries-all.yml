@@ -47,9 +47,11 @@ on:
     paths:
       - '.github/workflows/release-binaries-all.yml'
       - '.github/workflows/release-binaries.yml'
-      - '.github/workflows/release-binaries-setup-stage/*'
-      - '.github/workflows/release-binaries-save-stage/*'
+      - '.github/workflows/get-llvm-version/**'
+      - '.github/workflows/upload-release-artifact/**'
       - 'clang/cmake/caches/Release.cmake'
+      - 'llvm/utils/release/build_llvm_release.bat'
+      - 'llvm/utils/release/github-upload-release.py'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || 'dispatch' }}

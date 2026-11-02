@@ -866,9 +866,12 @@ class DAP(DebuggerBase, metaclass=abc.ABCMeta):
         for idx, stackframe in enumerate(stackframes):
             # FIXME: No source, skip the frame! Currently I've only observed this for frames below main, so we break
             # here; if it happens elsewhere, then this will break more stuff and we'll come up with a better solution.
+            # A non-zero sourceReference means the adapter generated the source (e.g. lldb-dap disassembly for a
+            # frame without debug info, whose path is "<module>`<symbol>"), so treat it as having no source too.
             if (
                 stackframe.get("source") is None
                 or stackframe["source"].get("path") is None
+                or stackframe["source"].get("sourceReference", 0) > 0
             ):
                 break
             loc_dict = {

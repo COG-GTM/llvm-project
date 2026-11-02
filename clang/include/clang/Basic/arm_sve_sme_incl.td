@@ -183,8 +183,16 @@ class FlagType<int val> {
   int Value = val;
 }
 
-// These must be kept in sync with the flags in utils/TableGen/SveEmitter.h
-// and include/clang/Basic/TargetBuiltins.h
+// clang/utils/TableGen/SveEmitter.cpp emits every FlagType below into
+// arm_sve_typeflags.inc, which SVETypeFlags in
+// include/clang/Basic/TargetBuiltins.h includes, so flag values only need to
+// be changed here. What still needs manual sync:
+//  - Flag names: SveEmitter.cpp looks some up by string (getEnumValueForFlag,
+//    encodeFlag) and the SVETypeFlags accessors in TargetBuiltins.h use them.
+//  - EltTypeMask, MemEltTypeMask, MergeTypeMask and SplatOperandMask must be
+//    contiguous, non-overlapping bit ranges wide enough for every
+//    EltType/MemEltType/MergeType value and splat operand index + 1.
+//  - OverloadKindMask must cover the IsOverload* bits except IsOverloadNone.
 def NoFlags                   : FlagType<0x00000000>;
 def FirstEltType              : FlagType<0x00000001>;
 //      :                                     :

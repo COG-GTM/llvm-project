@@ -12,10 +12,6 @@
 // XFAIL: clang-20, clang-21, apple-clang-17
 // UNSUPPORTED: c++03
 
-// TODO: remove the UNSUPPORTED clang-22 once libc++ CI's clang is updated to include
-// the fix https://github.com/llvm/llvm-project/pull/78707
-// UNSUPPORTED: clang-22
-
 #include <atomic>
 #include <cstring>
 #include <cassert>

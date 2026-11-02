@@ -283,6 +283,11 @@ if(LIBOMP_OMP_TOOLS_INCLUDE_DIR)
   include_directories(${LIBOMP_OMP_TOOLS_INCLUDE_DIR})
 endif()
 
+include(LibomptargetCheckLibompSentinels)
+libomptarget_check_libomp_sentinels(
+  "${LIBOMPTARGET_INCLUDE_DIR}/omptarget.h"
+  "${CMAKE_CURRENT_SOURCE_DIR}/../openmp/runtime/src/kmp.h")
+
 # TODO: Use RUNTIMES_OUTPUT_RESOURCE_LIB_DIR instead
 set(LIBOMPTARGET_LLVM_LIBRARY_DIR "${LLVM_LIBRARY_DIR}" CACHE STRING
   "Path to folder containing llvm library libomptarget.so")

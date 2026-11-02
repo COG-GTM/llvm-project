@@ -1009,6 +1009,9 @@ extern int __kmp_hws_abs_flag; // absolute or per-item number requested
 
 // We need to avoid using -1 as a GTID as +1 is added to the gtid
 // when storing it in a lock, and the value 0 is reserved.
+// KMP_GTID_DNE is returned by __kmpc_global_thread_num() and is mirrored in
+// offload/include/omptarget.h (TaskAsyncInfoWrapperTy). Update both together;
+// the offload CMake configure step checks that they match.
 #define KMP_GTID_DNE (-2) /* Does not exist */
 #define KMP_GTID_SHUTDOWN (-3) /* Library is shutting down */
 #define KMP_GTID_MONITOR (-4) /* Monitor thread ID */

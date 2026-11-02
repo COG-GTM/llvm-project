@@ -199,7 +199,9 @@ private:
 
 // Wrapper for task stored async info objects.
 class TaskAsyncInfoWrapperTy {
-  // Invalid GTID as defined by libomp; keep in sync
+  // Invalid GTID returned by __kmpc_global_thread_num(); mirrors KMP_GTID_DNE
+  // in openmp/runtime/src/kmp.h. offload/CMakeLists.txt fails the configure
+  // step if the two values differ.
   static constexpr int KMP_GTID_DNE = -2;
 
   const int ExecThreadID = KMP_GTID_DNE;

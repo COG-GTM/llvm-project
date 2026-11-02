@@ -37,14 +37,14 @@ BUILD=${BUILD:-cxx_build_dir}
 INSTALL=${INSTALL:-cxx_install_dir}
 MONOREPO_ROOT=${PWD}
 
-mkdir -p ${BUILD} ${OUT}
+mkdir -p "${BUILD}" "${OUT}"
 # Only the headers are built, so don't configure with the sanitizer flags: the
 # CMake link checks would otherwise need the sanitizer runtimes.
-CFLAGS= CXXFLAGS= cmake -S ${MONOREPO_ROOT}/runtimes -B ${BUILD} \
+CFLAGS= CXXFLAGS= cmake -S "${MONOREPO_ROOT}/runtimes" -B "${BUILD}" \
       -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;libunwind" \
       -DCMAKE_BUILD_TYPE=RelWithDebInfo \
       -DCMAKE_INSTALL_PREFIX="${INSTALL}"
-cmake --build ${BUILD} --target install-cxx-headers
+cmake --build "${BUILD}" --target install-cxx-headers
 
 for test in libcxx/test/libcxx/fuzzing/*.pass.cpp; do
     exe="$(basename ${test})"

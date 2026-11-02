@@ -86,6 +86,9 @@ DEPENDENT_RUNTIMES_TO_TEST = {
     "flang": {"flang-rt"},
     "flang-rt": {"flang-rt"},
     ".ci": {"compiler-rt", "libc", "flang-rt", "libclc"},
+    # Sanitizer instrumentation passes share ABI details (shadow TLS sizes,
+    # runtime entry points) with the compiler-rt runtimes.
+    "sanitizer-instrumentation": {"compiler-rt"},
 }
 DEPENDENT_RUNTIMES_TO_TEST_NEEDS_RECONFIG = {
     "llvm": {"libcxx", "libcxxabi", "libunwind"},
@@ -185,6 +188,14 @@ META_PROJECTS = {
     (".github", "workflows", "premerge.yaml"): ".ci",
     ("third-party",): ".ci",
     ("llvm", "utils", "lit"): "lit",
+    ("llvm", "lib", "Transforms", "Instrumentation"): "sanitizer-instrumentation",
+    (
+        "llvm",
+        "include",
+        "llvm",
+        "Transforms",
+        "Instrumentation",
+    ): "sanitizer-instrumentation",
 }
 
 # Projects that should run tests but cannot be explicitly built.

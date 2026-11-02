@@ -125,7 +125,8 @@ static const Align ShadowTLSAlignment = Align(2);
 static const Align MinOriginAlignment = Align(4);
 
 // The size of TLS variables. These constants must be kept in sync with the ones
-// in dfsan.cpp.
+// in compiler-rt/lib/dfsan/dfsan.cpp; compiler-rt/test/dfsan/tls_abi_size.c
+// checks that they match.
 static const unsigned ArgTLSSize = 800;
 static const unsigned RetvalTLSSize = 800;
 
